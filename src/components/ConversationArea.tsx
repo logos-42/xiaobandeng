@@ -18,12 +18,12 @@ export const ConversationArea = ({
 
   return (
     <div className="agent-card">
-      <h2 className="text-xl font-semibold mb-4">Conversations</h2>
+      <h2 className="text-xl font-semibold mb-4">对话区域</h2>
       
       <div className="space-y-4">
         <div className="flex gap-2">
           <Input
-            placeholder="Enter your emotional prompt..."
+            placeholder="输入你的情感提示..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             disabled={selectedAgents.length === 0}
@@ -35,7 +35,7 @@ export const ConversationArea = ({
             }}
             disabled={!prompt || selectedAgents.length === 0}
           >
-            Start
+            开始对话
           </Button>
         </div>
 
@@ -47,7 +47,7 @@ export const ConversationArea = ({
           ))}
           {conversations.length === 0 && (
             <p className="text-muted-foreground text-center py-4">
-              Select agents and start a conversation to see the magic happen!
+              选择智能体并开始对话，看看会发生什么神奇的事情！
             </p>
           )}
         </div>
