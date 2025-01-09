@@ -6,13 +6,11 @@ import { CreateAgent } from "@/components/CreateAgent";
 import { Agent } from "@/types/agent";
 import { toast } from "sonner";
 
-// DeepSeek API key - 在实际应用中应该从环境变量或安全的配置中获取
-const DEEPSEEK_API_KEY = "sk-680da8e9dcb74c2dac7a60f356a16e65";
-
 const Index = () => {
   const [privateAgents, setPrivateAgents] = useState<Agent[]>([]);
   const [selectedAgents, setSelectedAgents] = useState<Agent[]>([]);
   const [conversations, setConversations] = useState<string[]>([]);
+  const [sharedAgents, setSharedAgents] = useState<Agent[]>([]);
 
   const handleCreateAgent = (agent: Agent) => {
     if (privateAgents.some(existingAgent => existingAgent.name === agent.name)) {
@@ -32,17 +30,16 @@ const Index = () => {
     console.log("已选择的智能体更新为:", selectedAgents);
   };
 
-  const handleStartConversation = (prompt: string) => {
-    // 在实际应用中，这里会调用 DeepSeek API
-    const newConversation = `${selectedAgents.map(a => a.name).join(" 和 ")}讨论了: ${prompt}`;
-    setConversations([newConversation, ...conversations]);
-    console.log("开始新对话:", newConversation);
+  const handleStartConversation = (response: string) => {
+    setConversations([response, ...conversations]);
+    console.log("新对话已添加:", response);
   };
 
   const handleShareToPublic = (agent: Agent) => {
-    // 在实际应用中，这里会将智能体添加到公共数据库
+    const sharedAgent = { ...agent, isPublic: true };
+    setSharedAgents([...sharedAgents, sharedAgent]);
     toast.success(`${agent.name} 已成功分享到公共区域`);
-    console.log("分享智能体到公共区域:", agent);
+    console.log("分享智能体到公共区域:", sharedAgent);
   };
 
   return (
@@ -64,7 +61,10 @@ const Index = () => {
         </div>
         
         <div className="space-y-8">
-          <PublicAgents onAddToPrivate={handleCreateAgent} />
+          <PublicAgents 
+            onAddToPrivate={handleCreateAgent}
+            sharedAgents={sharedAgents}
+          />
           <ConversationArea 
             selectedAgents={selectedAgents}
             conversations={conversations}

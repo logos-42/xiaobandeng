@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Agent } from "@/types/agent";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 interface PublicAgentsProps {
   onAddToPrivate: (agent: Agent) => void;
+  sharedAgents?: Agent[];
 }
 
-export const PublicAgents = ({ onAddToPrivate }: PublicAgentsProps) => {
-  const [publicAgents] = useState<Agent[]>([
+export const PublicAgents = ({ onAddToPrivate, sharedAgents = [] }: PublicAgentsProps) => {
+  const [publicAgents, setPublicAgents] = useState<Agent[]>([
     {
       id: "pub1",
       name: "共情导师",
@@ -24,6 +25,21 @@ export const PublicAgents = ({ onAddToPrivate }: PublicAgentsProps) => {
       createdAt: new Date(),
     },
   ]);
+
+  useEffect(() => {
+    if (sharedAgents && sharedAgents.length > 0) {
+      const newPublicAgents = [...publicAgents];
+      sharedAgents.forEach(sharedAgent => {
+        if (!newPublicAgents.some(agent => agent.id === sharedAgent.id)) {
+          newPublicAgents.push({
+            ...sharedAgent,
+            isPublic: true
+          });
+        }
+      });
+      setPublicAgents(newPublicAgents);
+    }
+  }, [sharedAgents]);
 
   const handleAddToPrivate = (agent: Agent) => {
     const privateVersion = { 
