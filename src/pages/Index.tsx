@@ -1,24 +1,71 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AgentsList } from "@/components/AgentsList";
 import { PublicAgents } from "@/components/PublicAgents";
 import { ConversationArea } from "@/components/ConversationArea";
 import { CreateAgent } from "@/components/CreateAgent";
 import { Agent } from "@/types/agent";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
+  const navigate = useNavigate();
   const [privateAgents, setPrivateAgents] = useState<Agent[]>([]);
   const [selectedAgents, setSelectedAgents] = useState<Agent[]>([]);
   const [conversations, setConversations] = useState<string[]>([]);
   const [sharedAgents, setSharedAgents] = useState<Agent[]>([]);
 
-  const handleCreateAgent = (agent: Agent) => {
-    if (privateAgents.some(existingAgent => existingAgent.name === agent.name)) {
-      toast.error("已存在同名智能体");
+  useEffect(() => {
+    loadUserAgents();
+  }, []);
+
+  const loadUserAgents = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const { data: agents, error } = await supabase
+      .from('agents')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error("加载智能体失败:", error);
+      toast.error("加载智能体失败");
       return;
     }
-    setPrivateAgents([...privateAgents, agent]);
-    console.log("创建新智能体:", agent);
+
+    setPrivateAgents(agents);
+  };
+
+  const handleCreateAgent = async (agent: Agent) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error("请先登录");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('agents')
+      .insert([
+        {
+          name: agent.name,
+          description: agent.description,
+          user_id: session.user.id
+        }
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("创建智能体失败:", error);
+      toast.error("创建智能体失败");
+      return;
+    }
+
+    setPrivateAgents([data, ...privateAgents]);
+    toast.success("成功创建新智能体");
   };
 
   const handleAgentSelect = (agent: Agent) => {
@@ -27,24 +74,46 @@ const Index = () => {
     } else {
       setSelectedAgents([...selectedAgents, agent]);
     }
-    console.log("已选择的智能体更新为:", selectedAgents);
   };
 
   const handleStartConversation = (response: string) => {
     setConversations([response, ...conversations]);
-    console.log("新对话已添加:", response);
   };
 
-  const handleShareToPublic = (agent: Agent) => {
-    const sharedAgent = { ...agent, isPublic: true };
-    setSharedAgents([...sharedAgents, sharedAgent]);
+  const handleShareToPublic = async (agent: Agent) => {
+    const { error } = await supabase
+      .from('agents')
+      .update({ is_public: true })
+      .eq('id', agent.id);
+
+    if (error) {
+      console.error("分享智能体失败:", error);
+      toast.error("分享智能体失败");
+      return;
+    }
+
+    const updatedAgent = { ...agent, isPublic: true };
+    setSharedAgents([...sharedAgents, updatedAgent]);
     toast.success(`${agent.name} 已成功分享到公共区域`);
-    console.log("分享智能体到公共区域:", sharedAgent);
+  };
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast.error("退出登录失败");
+      return;
+    }
+    navigate("/auth");
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold text-center mb-8 text-primary">情绪炼金术</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-4xl font-bold text-primary">情绪炼金术</h1>
+        <Button variant="outline" onClick={handleLogout}>
+          退出登录
+        </Button>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-8">
