@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { AgentsList } from "@/components/AgentsList";
 import { PublicAgents } from "@/components/PublicAgents";
 import { ConversationArea } from "@/components/ConversationArea";
 import { CreateAgent } from "@/components/CreateAgent";
 import { Agent } from "@/types/agent";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [privateAgents, setPrivateAgents] = useState<Agent[]>([]);
@@ -13,64 +12,13 @@ const Index = () => {
   const [conversations, setConversations] = useState<string[]>([]);
   const [sharedAgents, setSharedAgents] = useState<Agent[]>([]);
 
-  useEffect(() => {
-    loadAgents();
-  }, []);
-
-  const loadAgents = async () => {
-    const { data: agents, error } = await supabase
-      .from('agents')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error("加载智能体失败:", error);
-      toast.error("加载智能体失败");
+  const handleCreateAgent = (agent: Agent) => {
+    if (privateAgents.some(existingAgent => existingAgent.name === agent.name)) {
+      toast.error("已存在同名智能体");
       return;
     }
-
-    // Transform the data to match our Agent interface
-    const transformedAgents: Agent[] = agents.map(agent => ({
-      id: agent.id,
-      name: agent.name,
-      description: agent.description || "",
-      isPublic: agent.is_public || false,
-      createdAt: new Date(agent.created_at)
-    }));
-
-    setPrivateAgents(transformedAgents);
-  };
-
-  const handleCreateAgent = async (agent: Agent) => {
-    const { data, error } = await supabase
-      .from('agents')
-      .insert([
-        {
-          name: agent.name,
-          description: agent.description,
-          is_public: agent.isPublic
-        }
-      ])
-      .select()
-      .single();
-
-    if (error) {
-      console.error("创建智能体失败:", error);
-      toast.error("创建智能体失败");
-      return;
-    }
-
-    // Transform the returned data to match our Agent interface
-    const newAgent: Agent = {
-      id: data.id,
-      name: data.name,
-      description: data.description || "",
-      isPublic: data.is_public || false,
-      createdAt: new Date(data.created_at)
-    };
-
-    setPrivateAgents([newAgent, ...privateAgents]);
-    toast.success("成功创建新智能体");
+    setPrivateAgents([...privateAgents, agent]);
+    console.log("创建新智能体:", agent);
   };
 
   const handleAgentSelect = (agent: Agent) => {
@@ -79,32 +27,24 @@ const Index = () => {
     } else {
       setSelectedAgents([...selectedAgents, agent]);
     }
+    console.log("已选择的智能体更新为:", selectedAgents);
   };
 
   const handleStartConversation = (response: string) => {
     setConversations([response, ...conversations]);
+    console.log("新对话已添加:", response);
   };
 
-  const handleShareToPublic = async (agent: Agent) => {
-    const { error } = await supabase
-      .from('agents')
-      .update({ is_public: true })
-      .eq('id', agent.id);
-
-    if (error) {
-      console.error("分享智能体失败:", error);
-      toast.error("分享智能体失败");
-      return;
-    }
-
-    const updatedAgent = { ...agent, isPublic: true };
-    setSharedAgents([...sharedAgents, updatedAgent]);
+  const handleShareToPublic = (agent: Agent) => {
+    const sharedAgent = { ...agent, isPublic: true };
+    setSharedAgents([...sharedAgents, sharedAgent]);
     toast.success(`${agent.name} 已成功分享到公共区域`);
+    console.log("分享智能体到公共区域:", sharedAgent);
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold text-primary mb-8">情绪炼金术</h1>
+      <h1 className="text-4xl font-bold text-center mb-8 text-primary">情绪炼金术</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-8">
