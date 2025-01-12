@@ -6,28 +6,21 @@ import { CreateAgent } from "@/components/CreateAgent";
 import { Agent } from "@/types/agent";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
 
 const Index = () => {
-  const navigate = useNavigate();
   const [privateAgents, setPrivateAgents] = useState<Agent[]>([]);
   const [selectedAgents, setSelectedAgents] = useState<Agent[]>([]);
   const [conversations, setConversations] = useState<string[]>([]);
   const [sharedAgents, setSharedAgents] = useState<Agent[]>([]);
 
   useEffect(() => {
-    loadUserAgents();
+    loadAgents();
   }, []);
 
-  const loadUserAgents = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
+  const loadAgents = async () => {
     const { data: agents, error } = await supabase
       .from('agents')
       .select('*')
-      .eq('user_id', session.user.id)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -49,19 +42,12 @@ const Index = () => {
   };
 
   const handleCreateAgent = async (agent: Agent) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast.error("请先登录");
-      return;
-    }
-
     const { data, error } = await supabase
       .from('agents')
       .insert([
         {
           name: agent.name,
           description: agent.description,
-          user_id: session.user.id,
           is_public: agent.isPublic
         }
       ])
@@ -116,23 +102,9 @@ const Index = () => {
     toast.success(`${agent.name} 已成功分享到公共区域`);
   };
 
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error("退出登录失败");
-      return;
-    }
-    navigate("/auth");
-  };
-
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold text-primary">情绪炼金术</h1>
-        <Button variant="outline" onClick={handleLogout}>
-          退出登录
-        </Button>
-      </div>
+      <h1 className="text-4xl font-bold text-primary mb-8">情绪炼金术</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-8">
