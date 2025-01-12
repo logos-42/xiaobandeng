@@ -36,7 +36,16 @@ const Index = () => {
       return;
     }
 
-    setPrivateAgents(agents);
+    // Transform the data to match our Agent interface
+    const transformedAgents: Agent[] = agents.map(agent => ({
+      id: agent.id,
+      name: agent.name,
+      description: agent.description || "",
+      isPublic: agent.is_public || false,
+      createdAt: new Date(agent.created_at)
+    }));
+
+    setPrivateAgents(transformedAgents);
   };
 
   const handleCreateAgent = async (agent: Agent) => {
@@ -52,7 +61,8 @@ const Index = () => {
         {
           name: agent.name,
           description: agent.description,
-          user_id: session.user.id
+          user_id: session.user.id,
+          is_public: agent.isPublic
         }
       ])
       .select()
@@ -64,7 +74,16 @@ const Index = () => {
       return;
     }
 
-    setPrivateAgents([data, ...privateAgents]);
+    // Transform the returned data to match our Agent interface
+    const newAgent: Agent = {
+      id: data.id,
+      name: data.name,
+      description: data.description || "",
+      isPublic: data.is_public || false,
+      createdAt: new Date(data.created_at)
+    };
+
+    setPrivateAgents([newAgent, ...privateAgents]);
     toast.success("成功创建新智能体");
   };
 
