@@ -126,7 +126,6 @@ const Index = () => {
   const handleStartConversation = async (content: string) => {
     try {
       console.log("Starting new conversation with content:", content);
-      // 创建对话
       const { data: conversationData, error: conversationError } = await supabase
         .from('conversations')
         .insert([{ content }])
@@ -143,7 +142,6 @@ const Index = () => {
         throw new Error('创建对话失败');
       }
 
-      // 创建智能体与对话的关联
       const conversationAgents = selectedAgents.map(agent => ({
         conversation_id: conversationData.id,
         agent_id: agent.id
@@ -171,7 +169,7 @@ const Index = () => {
     try {
       console.log("Sharing agent to public:", agent);
       
-      // First check if the agent exists and get its current data
+      // First check if the agent exists
       const { data: existingAgent, error: checkError } = await supabase
         .from('agents')
         .select()
