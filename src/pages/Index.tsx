@@ -148,54 +148,32 @@ const Index = () => {
     try {
       console.log("Sharing agent to public:", agent);
       
-      // First check if the agent exists and get its current data
-      const { data: existingAgent, error: checkError } = await supabase
-        .from('agents')
-        .select()
-        .eq('id', agent.id)
-        .maybeSingle();
-      
-      if (checkError) {
-        console.error('Error checking agent:', checkError);
-        throw checkError;
-      }
-      
-      if (!existingAgent) {
-        console.error('Agent not found');
-        toast.error("找不到要分享的智能体");
-        return;
-      }
-
-      // Update the agent to make it public
-      const { data, error } = await supabase
+      // 更新智能体为公共状态
+      const { error: updateError } = await supabase
         .from('agents')
         .update({ is_public: true })
-        .eq('id', agent.id)
-        .select()
-        .maybeSingle();
+        .eq('id', agent.id);
 
-      if (error) {
-        console.error('Error sharing agent:', error);
-        throw error;
+      if (updateError) {
+        console.error('Error updating agent:', updateError);
+        throw updateError;
       }
 
-      if (!data) {
-        console.error('No data returned after updating agent');
-        throw new Error('分享智能体失败');
-      }
-
+      // 从私有列表中移除
+      setPrivateAgents(prev => prev.filter(a => a.id !== agent.id));
+      
+      // 添加到公共列表
       const updatedAgent = {
-        id: data.id,
-        name: data.name,
-        description: data.description || "",
-        isPublic: true,
-        createdAt: new Date(data.created_at)
+        ...agent,
+        isPublic: true
       };
-
-      setSharedAgents([...sharedAgents, updatedAgent]);
-      setPrivateAgents(privateAgents.filter(a => a.id !== agent.id));
+      setSharedAgents(prev => [...prev, updatedAgent]);
+      
       toast.success(`${agent.name} 已成功分享到公共区域`);
       console.log("Agent shared to public:", updatedAgent);
+      
+      // 重新获取最新数据
+      await fetchAgents();
     } catch (error) {
       console.error('Error in handleShareToPublic:', error);
       toast.error("分享智能体失败");
