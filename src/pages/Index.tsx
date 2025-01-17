@@ -13,7 +13,6 @@ const Index = () => {
   const [conversations, setConversations] = useState<string[]>([]);
   const [sharedAgents, setSharedAgents] = useState<Agent[]>([]);
 
-  // 获取所有智能体
   useEffect(() => {
     fetchAgents();
   }, []);
@@ -72,9 +71,12 @@ const Index = () => {
           is_public: agent.isPublic
         }])
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) {
+        throw new Error('Failed to create agent');
+      }
 
       const newAgent = {
         id: data.id,
@@ -109,9 +111,12 @@ const Index = () => {
         .from('conversations')
         .insert([{ content }])
         .select()
-        .single();
+        .maybeSingle();
 
       if (conversationError) throw conversationError;
+      if (!conversationData) {
+        throw new Error('Failed to create conversation');
+      }
 
       // 创建智能体与对话的关联
       const conversationAgents = selectedAgents.map(agent => ({
@@ -141,9 +146,12 @@ const Index = () => {
         .update({ is_public: true })
         .eq('id', agent.id)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) {
+        throw new Error('Failed to share agent');
+      }
 
       const updatedAgent = {
         id: data.id,
