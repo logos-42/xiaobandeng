@@ -112,12 +112,15 @@ const Index = () => {
   };
 
   const handleAgentSelect = (agent: Agent) => {
-    if (selectedAgents.find(a => a.id === agent.id)) {
-      setSelectedAgents(selectedAgents.filter(a => a.id !== agent.id));
-    } else {
-      setSelectedAgents([...selectedAgents, agent]);
-    }
-    console.log("Selected agents updated:", selectedAgents);
+    setSelectedAgents(prev => {
+      const isSelected = prev.find(a => a.id === agent.id);
+      if (isSelected) {
+        return prev.filter(a => a.id !== agent.id);
+      } else {
+        return [...prev, agent];
+      }
+    });
+    console.log("Selected agents updated");
   };
 
   const handleStartConversation = async (content: string) => {
