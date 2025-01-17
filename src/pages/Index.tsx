@@ -167,6 +167,26 @@ const Index = () => {
   const handleShareToPublic = async (agent: Agent) => {
     try {
       console.log("Sharing agent to public:", agent);
+      
+      // First check if the agent exists and get its current data
+      const { data: existingAgent, error: checkError } = await supabase
+        .from('agents')
+        .select()
+        .eq('id', agent.id)
+        .maybeSingle();
+      
+      if (checkError) {
+        console.error('Error checking agent:', checkError);
+        throw checkError;
+      }
+      
+      if (!existingAgent) {
+        console.error('Agent not found');
+        toast.error("找不到要分享的智能体");
+        return;
+      }
+
+      // Update the agent to public
       const { data, error } = await supabase
         .from('agents')
         .update({ is_public: true })
@@ -180,7 +200,7 @@ const Index = () => {
       }
 
       if (!data) {
-        console.error('No data returned after sharing agent');
+        console.error('No data returned after updating agent');
         throw new Error('分享智能体失败');
       }
 
