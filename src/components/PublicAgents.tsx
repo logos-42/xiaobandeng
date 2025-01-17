@@ -9,38 +9,6 @@ interface PublicAgentsProps {
 }
 
 export const PublicAgents = ({ onAddToPrivate, sharedAgents = [] }: PublicAgentsProps) => {
-  const [publicAgents, setPublicAgents] = useState<Agent[]>([
-    {
-      id: "pub1",
-      name: "共情导师",
-      description: "专注于理解复杂情绪",
-      isPublic: true,
-      createdAt: new Date(),
-    },
-    {
-      id: "pub2",
-      name: "智慧守护者",
-      description: "分享古老的情感智慧",
-      isPublic: true,
-      createdAt: new Date(),
-    },
-  ]);
-
-  useEffect(() => {
-    if (sharedAgents && sharedAgents.length > 0) {
-      const newPublicAgents = [...publicAgents];
-      sharedAgents.forEach(sharedAgent => {
-        if (!newPublicAgents.some(agent => agent.id === sharedAgent.id)) {
-          newPublicAgents.push({
-            ...sharedAgent,
-            isPublic: true
-          });
-        }
-      });
-      setPublicAgents(newPublicAgents);
-    }
-  }, [sharedAgents]);
-
   const handleAddToPrivate = (agent: Agent) => {
     const privateVersion = { 
       ...agent, 
@@ -48,7 +16,6 @@ export const PublicAgents = ({ onAddToPrivate, sharedAgents = [] }: PublicAgents
       isPublic: false 
     };
     onAddToPrivate(privateVersion);
-    toast.success("成功添加到我的智能体");
     console.log("添加公共智能体到私有列表:", privateVersion);
   };
 
@@ -56,7 +23,7 @@ export const PublicAgents = ({ onAddToPrivate, sharedAgents = [] }: PublicAgents
     <div className="agent-card">
       <h2 className="text-xl font-semibold mb-4">公共智能体</h2>
       <div className="space-y-3">
-        {publicAgents.map((agent) => (
+        {sharedAgents.map((agent) => (
           <div key={agent.id} className="p-3 rounded-md border hover:border-primary/50 transition-all">
             <div className="flex justify-between items-center">
               <div>
@@ -73,6 +40,11 @@ export const PublicAgents = ({ onAddToPrivate, sharedAgents = [] }: PublicAgents
             </div>
           </div>
         ))}
+        {sharedAgents.length === 0 && (
+          <p className="text-muted-foreground text-center py-4">
+            暂无公共智能体可用
+          </p>
+        )}
       </div>
     </div>
   );

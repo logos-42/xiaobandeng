@@ -9,7 +9,78 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      agents: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_public: boolean | null
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          name?: string
+        }
+        Relationships: []
+      }
+      conversation_agents: {
+        Row: {
+          agent_id: string
+          conversation_id: string
+        }
+        Insert: {
+          agent_id: string
+          conversation_id: string
+        }
+        Update: {
+          agent_id?: string
+          conversation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_agents_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_agents_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
