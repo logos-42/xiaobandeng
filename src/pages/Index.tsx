@@ -69,6 +69,29 @@ const Index = () => {
     }
   };
 
+  const handleDeleteAgent = async (agent: Agent) => {
+    try {
+      console.log("Deleting agent:", agent);
+      
+      const { error } = await supabase
+        .from('agents')
+        .delete()
+        .eq('id', agent.id);
+
+      if (error) {
+        console.error('Error deleting agent:', error);
+        throw error;
+      }
+
+      setPrivateAgents(privateAgents.filter(a => a.id !== agent.id));
+      setSelectedAgents(selectedAgents.filter(a => a.id !== agent.id));
+      toast.success("智能体已删除");
+    } catch (error) {
+      console.error('Error in handleDeleteAgent:', error);
+      toast.error("删除智能体失败");
+    }
+  };
+
   const handleCreateAgent = async (agent: Agent) => {
     try {
       console.log("Creating new agent:", agent);
@@ -234,6 +257,7 @@ const Index = () => {
             selectedAgents={selectedAgents}
             onAgentSelect={handleAgentSelect}
             onShareToPublic={handleShareToPublic}
+            onDeleteAgent={handleDeleteAgent}
           />
         </div>
         
