@@ -21,7 +21,6 @@ const Index = () => {
     try {
       console.log("Fetching agents from database...");
       
-      // 获取私有智能体
       const { data: privateData, error: privateError } = await supabase
         .from('agents')
         .select('*')
@@ -43,7 +42,6 @@ const Index = () => {
       console.log("Fetched private agents:", formattedPrivateAgents);
       setPrivateAgents(formattedPrivateAgents);
 
-      // 获取公共智能体
       const { data: publicData, error: publicError } = await supabase
         .from('agents')
         .select('*')
@@ -169,7 +167,6 @@ const Index = () => {
     try {
       console.log("Sharing agent to public:", agent);
       
-      // First check if the agent exists
       const { data: existingAgent, error: checkError } = await supabase
         .from('agents')
         .select()
@@ -187,7 +184,6 @@ const Index = () => {
         return;
       }
 
-      // Update the agent to public
       const { data, error } = await supabase
         .from('agents')
         .update({ is_public: true })
