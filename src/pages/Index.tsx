@@ -148,6 +148,7 @@ const Index = () => {
     try {
       console.log("Sharing agent to public:", agent);
       
+      // First check if the agent exists and get its current data
       const { data: existingAgent, error: checkError } = await supabase
         .from('agents')
         .select()
@@ -165,6 +166,7 @@ const Index = () => {
         return;
       }
 
+      // Update the agent to make it public
       const { data, error } = await supabase
         .from('agents')
         .update({ is_public: true })
