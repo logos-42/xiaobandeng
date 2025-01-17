@@ -19,13 +19,18 @@ const Index = () => {
 
   const fetchAgents = async () => {
     try {
+      console.log("Fetching agents from database...");
+      
       // 获取私有智能体
       const { data: privateData, error: privateError } = await supabase
         .from('agents')
         .select('*')
         .eq('is_public', false);
 
-      if (privateError) throw privateError;
+      if (privateError) {
+        console.error('Error fetching private agents:', privateError);
+        throw privateError;
+      }
       
       const formattedPrivateAgents = privateData.map(agent => ({
         id: agent.id,
@@ -35,6 +40,7 @@ const Index = () => {
         createdAt: new Date(agent.created_at)
       }));
       
+      console.log("Fetched private agents:", formattedPrivateAgents);
       setPrivateAgents(formattedPrivateAgents);
 
       // 获取公共智能体
@@ -43,7 +49,10 @@ const Index = () => {
         .select('*')
         .eq('is_public', true);
 
-      if (publicError) throw publicError;
+      if (publicError) {
+        console.error('Error fetching public agents:', publicError);
+        throw publicError;
+      }
       
       const formattedPublicAgents = publicData.map(agent => ({
         id: agent.id,
@@ -53,16 +62,18 @@ const Index = () => {
         createdAt: new Date(agent.created_at)
       }));
       
+      console.log("Fetched public agents:", formattedPublicAgents);
       setSharedAgents(formattedPublicAgents);
       
     } catch (error) {
-      console.error('Error fetching agents:', error);
+      console.error('Error in fetchAgents:', error);
       toast.error("获取智能体失败");
     }
   };
 
   const handleCreateAgent = async (agent: Agent) => {
     try {
+      console.log("Creating new agent:", agent);
       const { data, error } = await supabase
         .from('agents')
         .insert([{
@@ -73,9 +84,14 @@ const Index = () => {
         .select()
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating agent:', error);
+        throw error;
+      }
+      
       if (!data) {
-        throw new Error('Failed to create agent');
+        console.error('No data returned after creating agent');
+        throw new Error('创建智能体失败');
       }
 
       const newAgent = {
@@ -88,9 +104,9 @@ const Index = () => {
 
       setPrivateAgents([...privateAgents, newAgent]);
       toast.success("成功创建新智能体");
-      console.log("创建新智能体:", newAgent);
+      console.log("Created new agent:", newAgent);
     } catch (error) {
-      console.error('Error creating agent:', error);
+      console.error('Error in handleCreateAgent:', error);
       toast.error("创建智能体失败");
     }
   };
@@ -101,11 +117,12 @@ const Index = () => {
     } else {
       setSelectedAgents([...selectedAgents, agent]);
     }
-    console.log("已选择的智能体更新为:", selectedAgents);
+    console.log("Selected agents updated:", selectedAgents);
   };
 
   const handleStartConversation = async (content: string) => {
     try {
+      console.log("Starting new conversation with content:", content);
       // 创建对话
       const { data: conversationData, error: conversationError } = await supabase
         .from('conversations')
@@ -113,9 +130,14 @@ const Index = () => {
         .select()
         .maybeSingle();
 
-      if (conversationError) throw conversationError;
+      if (conversationError) {
+        console.error('Error creating conversation:', conversationError);
+        throw conversationError;
+      }
+
       if (!conversationData) {
-        throw new Error('Failed to create conversation');
+        console.error('No data returned after creating conversation');
+        throw new Error('创建对话失败');
       }
 
       // 创建智能体与对话的关联
@@ -128,19 +150,23 @@ const Index = () => {
         .from('conversation_agents')
         .insert(conversationAgents);
 
-      if (linkError) throw linkError;
+      if (linkError) {
+        console.error('Error linking agents to conversation:', linkError);
+        throw linkError;
+      }
 
       setConversations([content, ...conversations]);
-      console.log("新对话已添加:", content);
+      console.log("New conversation added:", content);
       toast.success("对话已保存");
     } catch (error) {
-      console.error('Error saving conversation:', error);
+      console.error('Error in handleStartConversation:', error);
       toast.error("保存对话失败");
     }
   };
 
   const handleShareToPublic = async (agent: Agent) => {
     try {
+      console.log("Sharing agent to public:", agent);
       const { data, error } = await supabase
         .from('agents')
         .update({ is_public: true })
@@ -148,9 +174,14 @@ const Index = () => {
         .select()
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error sharing agent:', error);
+        throw error;
+      }
+
       if (!data) {
-        throw new Error('Failed to share agent');
+        console.error('No data returned after sharing agent');
+        throw new Error('分享智能体失败');
       }
 
       const updatedAgent = {
@@ -164,9 +195,9 @@ const Index = () => {
       setSharedAgents([...sharedAgents, updatedAgent]);
       setPrivateAgents(privateAgents.filter(a => a.id !== agent.id));
       toast.success(`${agent.name} 已成功分享到公共区域`);
-      console.log("分享智能体到公共区域:", updatedAgent);
+      console.log("Agent shared to public:", updatedAgent);
     } catch (error) {
-      console.error('Error sharing agent:', error);
+      console.error('Error in handleShareToPublic:', error);
       toast.error("分享智能体失败");
     }
   };
