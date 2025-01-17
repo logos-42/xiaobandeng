@@ -144,48 +144,6 @@ const Index = () => {
     console.log("Selected agents updated");
   };
 
-  const handleStartConversation = async (content: string) => {
-    try {
-      console.log("Starting new conversation with content:", content);
-      const { data: conversationData, error: conversationError } = await supabase
-        .from('conversations')
-        .insert([{ content }])
-        .select()
-        .maybeSingle();
-
-      if (conversationError) {
-        console.error('Error creating conversation:', conversationError);
-        throw conversationError;
-      }
-
-      if (!conversationData) {
-        console.error('No data returned after creating conversation');
-        throw new Error('创建对话失败');
-      }
-
-      const conversationAgents = selectedAgents.map(agent => ({
-        conversation_id: conversationData.id,
-        agent_id: agent.id
-      }));
-
-      const { error: linkError } = await supabase
-        .from('conversation_agents')
-        .insert(conversationAgents);
-
-      if (linkError) {
-        console.error('Error linking agents to conversation:', linkError);
-        throw linkError;
-      }
-
-      setConversations([content, ...conversations]);
-      console.log("New conversation added:", content);
-      toast.success("对话已保存");
-    } catch (error) {
-      console.error('Error in handleStartConversation:', error);
-      toast.error("保存对话失败");
-    }
-  };
-
   const handleShareToPublic = async (agent: Agent) => {
     try {
       console.log("Sharing agent to public:", agent);
@@ -239,6 +197,48 @@ const Index = () => {
     } catch (error) {
       console.error('Error in handleShareToPublic:', error);
       toast.error("分享智能体失败");
+    }
+  };
+
+  const handleStartConversation = async (content: string) => {
+    try {
+      console.log("Starting new conversation with content:", content);
+      const { data: conversationData, error: conversationError } = await supabase
+        .from('conversations')
+        .insert([{ content }])
+        .select()
+        .maybeSingle();
+
+      if (conversationError) {
+        console.error('Error creating conversation:', conversationError);
+        throw conversationError;
+      }
+
+      if (!conversationData) {
+        console.error('No data returned after creating conversation');
+        throw new Error('创建对话失败');
+      }
+
+      const conversationAgents = selectedAgents.map(agent => ({
+        conversation_id: conversationData.id,
+        agent_id: agent.id
+      }));
+
+      const { error: linkError } = await supabase
+        .from('conversation_agents')
+        .insert(conversationAgents);
+
+      if (linkError) {
+        console.error('Error linking agents to conversation:', linkError);
+        throw linkError;
+      }
+
+      setConversations([content, ...conversations]);
+      console.log("New conversation added:", content);
+      toast.success("对话已保存");
+    } catch (error) {
+      console.error('Error in handleStartConversation:', error);
+      toast.error("保存对话失败");
     }
   };
 
