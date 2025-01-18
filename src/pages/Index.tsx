@@ -6,6 +6,10 @@ import { CreateAgent } from "@/components/CreateAgent";
 import { Agent } from "@/types/agent";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
+
+type DbAgent = Database['public']['Tables']['agents']['Row'];
+type DbConversation = Database['public']['Tables']['conversations']['Row'];
 
 const Index = () => {
   const [privateAgents, setPrivateAgents] = useState<Agent[]>([]);
@@ -102,7 +106,8 @@ const Index = () => {
           description: agent.description,
           is_public: agent.isPublic
         }])
-        .maybeSingle();
+        .select()
+        .maybeSingle() as { data: DbAgent | null, error: any };
 
       if (error) {
         console.error('Error creating agent:', error);
@@ -164,7 +169,6 @@ const Index = () => {
       toast.success(`${agent.name} 已成功分享到公共区域`);
       console.log("Agent shared to public:", updatedAgent);
       
-      // 重新获取最新数据以确保同步
       await fetchAgents();
     } catch (error) {
       console.error('Error in handleShareToPublic:', error);
@@ -178,7 +182,8 @@ const Index = () => {
       const { data: conversationData, error: conversationError } = await supabase
         .from('conversations')
         .insert([{ content }])
-        .maybeSingle();
+        .select()
+        .maybeSingle() as { data: DbConversation | null, error: any };
 
       if (conversationError) {
         console.error('Error creating conversation:', conversationError);
