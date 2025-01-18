@@ -102,12 +102,16 @@ const Index = () => {
           description: agent.description,
           is_public: agent.isPublic
         }])
-        .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error creating agent:', error);
         throw error;
+      }
+      
+      if (!data) {
+        console.error('No data returned after creating agent');
+        throw new Error('创建智能体失败');
       }
 
       const newAgent = {
@@ -143,23 +147,25 @@ const Index = () => {
     try {
       console.log("Sharing agent to public:", agent);
       
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('agents')
         .update({ is_public: true })
         .eq('id', agent.id);
 
-      if (error) {
-        console.error('Error updating agent:', error);
-        throw error;
+      if (updateError) {
+        console.error('Error updating agent:', updateError);
+        throw updateError;
       }
 
-      // Update local state first
       setPrivateAgents(prev => prev.filter(a => a.id !== agent.id));
       const updatedAgent = { ...agent, isPublic: true };
       setSharedAgents(prev => [...prev, updatedAgent]);
       
       toast.success(`${agent.name} 已成功分享到公共区域`);
       console.log("Agent shared to public:", updatedAgent);
+      
+      // 重新获取最新数据以确保同步
+      await fetchAgents();
     } catch (error) {
       console.error('Error in handleShareToPublic:', error);
       toast.error("分享智能体失败");
@@ -172,12 +178,16 @@ const Index = () => {
       const { data: conversationData, error: conversationError } = await supabase
         .from('conversations')
         .insert([{ content }])
-        .select()
-        .single();
+        .maybeSingle();
 
       if (conversationError) {
         console.error('Error creating conversation:', conversationError);
         throw conversationError;
+      }
+
+      if (!conversationData) {
+        console.error('No data returned after creating conversation');
+        throw new Error('创建对话失败');
       }
 
       const conversationAgents = selectedAgents.map(agent => ({
