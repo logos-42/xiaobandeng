@@ -32,10 +32,11 @@ const Index = () => {
 
       if (privateError) {
         console.error('Error fetching private agents:', privateError);
+        toast.error("获取私有智能体失败");
         throw privateError;
       }
       
-      const formattedPrivateAgents = privateData.map(agent => ({
+      const formattedPrivateAgents = (privateData || []).map(agent => ({
         id: agent.id,
         name: agent.name,
         description: agent.description || "",
@@ -53,10 +54,11 @@ const Index = () => {
 
       if (publicError) {
         console.error('Error fetching public agents:', publicError);
+        toast.error("获取公共智能体失败");
         throw publicError;
       }
       
-      const formattedPublicAgents = publicData.map(agent => ({
+      const formattedPublicAgents = (publicData || []).map(agent => ({
         id: agent.id,
         name: agent.name,
         description: agent.description || "",
@@ -70,6 +72,48 @@ const Index = () => {
     } catch (error) {
       console.error('Error in fetchAgents:', error);
       toast.error("获取智能体失败");
+    }
+  };
+
+  const handleCreateAgent = async (agent: Agent) => {
+    try {
+      console.log("Creating new agent:", agent);
+      
+      const { data, error } = await supabase
+        .from('agents')
+        .insert([{
+          name: agent.name,
+          description: agent.description,
+          is_public: agent.isPublic
+        }])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating agent:', error);
+        throw error;
+      }
+
+      if (!data) {
+        throw new Error('No data returned after creating agent');
+      }
+
+      const newAgent: Agent = {
+        id: data.id,
+        name: data.name,
+        description: data.description || "",
+        isPublic: data.is_public || false,
+        createdAt: new Date(data.created_at)
+      };
+
+      setPrivateAgents(prev => [...prev, newAgent]);
+      toast.success("成功创建新智能体");
+      console.log("Created new agent:", newAgent);
+      
+    } catch (error) {
+      console.error('Error in handleCreateAgent:', error);
+      toast.error("创建智能体失败，请重试");
+      throw error;
     }
   };
 
@@ -93,46 +137,6 @@ const Index = () => {
     } catch (error) {
       console.error('Error in handleDeleteAgent:', error);
       toast.error("删除智能体失败");
-    }
-  };
-
-  const handleCreateAgent = async (agent: Agent) => {
-    try {
-      console.log("Creating new agent:", agent);
-      const { data, error } = await supabase
-        .from('agents')
-        .insert([{
-          name: agent.name,
-          description: agent.description,
-          is_public: agent.isPublic
-        }])
-        .select()
-        .maybeSingle() as { data: DbAgent | null, error: any };
-
-      if (error) {
-        console.error('Error creating agent:', error);
-        throw error;
-      }
-      
-      if (!data) {
-        console.error('No data returned after creating agent');
-        throw new Error('创建智能体失败');
-      }
-
-      const newAgent = {
-        id: data.id,
-        name: data.name,
-        description: data.description || "",
-        isPublic: data.is_public || false,
-        createdAt: new Date(data.created_at)
-      };
-
-      setPrivateAgents([...privateAgents, newAgent]);
-      toast.success("成功创建新智能体");
-      console.log("Created new agent:", newAgent);
-    } catch (error) {
-      console.error('Error in handleCreateAgent:', error);
-      toast.error("创建智能体失败");
     }
   };
 
