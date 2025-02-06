@@ -3,6 +3,7 @@ import { Agent } from "@/types/agent";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ConversationAreaProps {
   selectedAgents: Agent[];
@@ -52,11 +53,53 @@ export const ConversationArea = ({
 
       const data = await response.json();
       if (data.choices && data.choices[0]) {
+        // 创建对话记录
         onStartConversation(data.choices[0].message.content);
+        
+        // 自动创建世界群组
+        const worldThemes = ["玄幻", "科幻", "言情", "武侠", "都市"];
+        const randomTheme = worldThemes[Math.floor(Math.random() * worldThemes.length)];
+        
+        const { data: worldGroup, error: worldGroupError } = await supabase
+          .from('world_groups')
+          .insert([{
+            name: `${selectedAgents[0].name}的${randomTheme}世界`,
+            theme: randomTheme,
+            description: `由${selectedAgents.map(a => a.name).join('、')}发起的${randomTheme}冒险`
+          }])
+          .select()
+          .single();
+
+        if (worldGroupError) throw worldGroupError;
+
+        // 添加智能体到世界群组
+        const worldGroupAgents = selectedAgents.map(agent => ({
+          world_group_id: worldGroup.id,
+          agent_id: agent.id
+        }));
+
+        const { error: agentsError } = await supabase
+          .from('world_group_agents')
+          .insert(worldGroupAgents);
+
+        if (agentsError) throw agentsError;
+
+        // 添加初始对话到世界群组
+        const { error: conversationError } = await supabase
+          .from('world_conversations')
+          .insert([{
+            world_group_id: worldGroup.id,
+            content: data.choices[0].message.content,
+            agent_id: selectedAgents[0].id
+          }]);
+
+        if (conversationError) throw conversationError;
+
+        toast.success(`已创建新的${randomTheme}世界群组！`);
         setPrompt("");
       }
     } catch (error) {
-      console.error("调用DeepSeek API失败:", error);
+      console.error("生成对话失败:", error);
       toast.error("生成对话失败，请稍后重试");
     } finally {
       setIsLoading(false);

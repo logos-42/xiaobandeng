@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { WorldGroupChat } from "./WorldGroupChat";
 
 interface WorldGroup {
   id: string;
@@ -241,6 +242,15 @@ export const WorldGroups = ({ agents }: WorldGroupsProps) => {
                           </div>
                         ))}
                     </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <WorldGroupChat
+                      groupId={group.id}
+                      groupName={group.name}
+                      theme={group.theme}
+                      agents={groupAgents}
+                    />
                   </div>
                 </div>
               )}
