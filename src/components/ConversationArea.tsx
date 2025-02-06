@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Agent } from "@/types/agent";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { ConversationInput } from "./conversation/ConversationInput";
+import { ConversationList } from "./conversation/ConversationList";
 
 interface ConversationAreaProps {
   selectedAgents: Agent[];
@@ -16,17 +16,11 @@ export const ConversationArea = ({
   conversations,
   onStartConversation,
 }: ConversationAreaProps) => {
-  const [prompt, setPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const generateConversation = async (userPrompt: string) => {
     if (selectedAgents.length === 0) {
       toast.error("请先选择至少一个智能体");
-      return;
-    }
-
-    if (!userPrompt.trim()) {
-      toast.error("请输入对话提示");
       return;
     }
 
@@ -58,10 +52,8 @@ export const ConversationArea = ({
 
       const data = await response.json();
       if (data.choices && data.choices[0]) {
-        // 创建对话记录
         onStartConversation(data.choices[0].message.content);
         
-        // 自动创建世界群组
         const worldThemes = ["玄幻", "科幻", "言情", "武侠", "都市"];
         const randomTheme = worldThemes[Math.floor(Math.random() * worldThemes.length)];
         
@@ -77,7 +69,6 @@ export const ConversationArea = ({
 
         if (worldGroupError) throw worldGroupError;
 
-        // 添加智能体到世界群组
         const worldGroupAgents = selectedAgents.map(agent => ({
           world_group_id: worldGroup.id,
           agent_id: agent.id
@@ -89,7 +80,6 @@ export const ConversationArea = ({
 
         if (agentsError) throw agentsError;
 
-        // 添加初始对话到世界群组
         const { error: conversationError } = await supabase
           .from('world_conversations')
           .insert([{
@@ -101,7 +91,6 @@ export const ConversationArea = ({
         if (conversationError) throw conversationError;
 
         toast.success(`已创建新的${randomTheme}世界群组！`);
-        setPrompt("");
       }
     } catch (error) {
       console.error("生成对话失败:", error);
@@ -111,48 +100,16 @@ export const ConversationArea = ({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (prompt.trim()) {
-        generateConversation(prompt);
-      }
-    }
-  };
-
   return (
     <div className="agent-card">
       <h2 className="text-xl font-semibold mb-4">对话区域</h2>
-      
       <div className="space-y-4">
-        <div className="flex gap-2">
-          <Input
-            placeholder="输入你的情感提示..."
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={selectedAgents.length === 0 || isLoading}
-          />
-          <Button
-            onClick={() => generateConversation(prompt)}
-            disabled={!prompt.trim() || selectedAgents.length === 0 || isLoading}
-          >
-            {isLoading ? "生成中..." : "开始对话"}
-          </Button>
-        </div>
-
-        <div className="space-y-3 mt-4 max-h-[400px] overflow-y-auto">
-          {conversations.map((conversation, index) => (
-            <div key={index} className="p-4 rounded-lg bg-secondary/20">
-              <p className="whitespace-pre-wrap">{conversation}</p>
-            </div>
-          ))}
-          {conversations.length === 0 && (
-            <p className="text-muted-foreground text-center py-4">
-              选择智能体并开始对话，看看会发生什么神奇的事情！
-            </p>
-          )}
-        </div>
+        <ConversationInput
+          onSubmit={generateConversation}
+          isDisabled={selectedAgents.length === 0 || isLoading}
+          isLoading={isLoading}
+        />
+        <ConversationList conversations={conversations} />
       </div>
     </div>
   );
