@@ -25,6 +25,11 @@ export const ConversationArea = ({
       return;
     }
 
+    if (!userPrompt.trim()) {
+      toast.error("请输入对话提示");
+      return;
+    }
+
     setIsLoading(true);
     try {
       const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
@@ -106,6 +111,15 @@ export const ConversationArea = ({
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (prompt.trim()) {
+        generateConversation(prompt);
+      }
+    }
+  };
+
   return (
     <div className="agent-card">
       <h2 className="text-xl font-semibold mb-4">对话区域</h2>
@@ -116,19 +130,12 @@ export const ConversationArea = ({
             placeholder="输入你的情感提示..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                if (prompt.trim()) {
-                  generateConversation(prompt);
-                }
-              }
-            }}
+            onKeyDown={handleKeyDown}
             disabled={selectedAgents.length === 0 || isLoading}
           />
           <Button
             onClick={() => generateConversation(prompt)}
-            disabled={!prompt || selectedAgents.length === 0 || isLoading}
+            disabled={!prompt.trim() || selectedAgents.length === 0 || isLoading}
           >
             {isLoading ? "生成中..." : "开始对话"}
           </Button>
