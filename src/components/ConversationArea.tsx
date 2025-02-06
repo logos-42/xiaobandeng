@@ -116,6 +116,14 @@ export const ConversationArea = ({
             placeholder="输入你的情感提示..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (prompt.trim()) {
+                  generateConversation(prompt);
+                }
+              }
+            }}
             disabled={selectedAgents.length === 0 || isLoading}
           />
           <Button
