@@ -3,13 +3,10 @@ import { AgentsList } from "@/components/AgentsList";
 import { PublicAgents } from "@/components/PublicAgents";
 import { ConversationArea } from "@/components/ConversationArea";
 import { CreateAgent } from "@/components/CreateAgent";
+import { WorldGroups } from "@/components/WorldGroups";
 import { Agent } from "@/types/agent";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { Database } from "@/integrations/supabase/types";
-
-type DbAgent = Database['public']['Tables']['agents']['Row'];
-type DbConversation = Database['public']['Tables']['conversations']['Row'];
 
 const Index = () => {
   const [privateAgents, setPrivateAgents] = useState<Agent[]>([]);
@@ -149,30 +146,22 @@ const Index = () => {
         return [...prev, agent];
       }
     });
-    console.log("Selected agents updated");
   };
 
   const handleShareToPublic = async (agent: Agent) => {
     try {
-      console.log("Sharing agent to public:", agent);
-      
       const { error: updateError } = await supabase
         .from('agents')
         .update({ is_public: true })
         .eq('id', agent.id);
 
-      if (updateError) {
-        console.error('Error updating agent:', updateError);
-        throw updateError;
-      }
+      if (updateError) throw updateError;
 
       setPrivateAgents(prev => prev.filter(a => a.id !== agent.id));
       const updatedAgent = { ...agent, isPublic: true };
       setSharedAgents(prev => [...prev, updatedAgent]);
       
       toast.success(`${agent.name} 已成功分享到公共区域`);
-      console.log("Agent shared to public:", updatedAgent);
-      
       await fetchAgents();
     } catch (error) {
       console.error('Error in handleShareToPublic:', error);
@@ -182,20 +171,15 @@ const Index = () => {
 
   const handleStartConversation = async (content: string) => {
     try {
-      console.log("Starting new conversation with content:", content);
       const { data: conversationData, error: conversationError } = await supabase
         .from('conversations')
         .insert([{ content }])
         .select()
-        .maybeSingle() as { data: DbConversation | null, error: any };
+        .single();
 
-      if (conversationError) {
-        console.error('Error creating conversation:', conversationError);
-        throw conversationError;
-      }
+      if (conversationError) throw conversationError;
 
       if (!conversationData) {
-        console.error('No data returned after creating conversation');
         throw new Error('创建对话失败');
       }
 
@@ -208,13 +192,9 @@ const Index = () => {
         .from('conversation_agents')
         .insert(conversationAgents);
 
-      if (linkError) {
-        console.error('Error linking agents to conversation:', linkError);
-        throw linkError;
-      }
+      if (linkError) throw linkError;
 
       setConversations([content, ...conversations]);
-      console.log("New conversation added:", content);
       toast.success("对话已保存");
     } catch (error) {
       console.error('Error in handleStartConversation:', error);
@@ -224,7 +204,7 @@ const Index = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold text-center mb-8 text-primary">情绪炼金术</h1>
+      <h1 className="text-4xl font-bold text-center mb-8 text-primary">小板凳</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-8">
@@ -245,6 +225,9 @@ const Index = () => {
           <PublicAgents 
             onAddToPrivate={handleCreateAgent}
             sharedAgents={sharedAgents}
+          />
+          <WorldGroups 
+            agents={[...privateAgents, ...sharedAgents]}
           />
           <ConversationArea 
             selectedAgents={selectedAgents}

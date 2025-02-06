@@ -81,6 +81,99 @@ export type Database = {
         }
         Relationships: []
       }
+      world_conversations: {
+        Row: {
+          agent_id: string | null
+          content: string
+          created_at: string
+          id: string
+          world_group_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          world_group_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          world_group_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "world_conversations_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "world_conversations_world_group_id_fkey"
+            columns: ["world_group_id"]
+            isOneToOne: false
+            referencedRelation: "world_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      world_group_agents: {
+        Row: {
+          agent_id: string
+          world_group_id: string
+        }
+        Insert: {
+          agent_id: string
+          world_group_id: string
+        }
+        Update: {
+          agent_id?: string
+          world_group_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "world_group_agents_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "world_group_agents_world_group_id_fkey"
+            columns: ["world_group_id"]
+            isOneToOne: false
+            referencedRelation: "world_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      world_groups: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          theme: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          theme: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          theme?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
