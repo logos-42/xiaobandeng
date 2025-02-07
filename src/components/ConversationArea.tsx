@@ -107,7 +107,7 @@ export const ConversationArea = ({
       <div className="space-y-4">
         <ConversationInput
           onSubmit={generateConversation}
-          isDisabled={selectedAgents.length === 0 || isLoading}
+          isDisabled={selectedAgents.length === 0}
           isLoading={isLoading}
         />
         <ConversationList conversations={conversations} />
