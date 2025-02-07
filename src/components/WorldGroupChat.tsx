@@ -20,22 +20,27 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
   }>>([]);
   
   const [isGenerating, setIsGenerating] = useState(false);
-  const isInitialMount = useRef(true);
+  const autoChatIntervals = useRef<number[]>([]);
 
   useEffect(() => {
+    console.log("WorldGroupChat mounted with groupId:", groupId);
     fetchConversations();
     const channel = subscribeToNewMessages();
-    startAutoChat();
+    initializeAutoChat();
 
     return () => {
       if (channel) {
         supabase.removeChannel(channel);
       }
+      // 清除所有自动聊天的定时器
+      autoChatIntervals.current.forEach(interval => clearInterval(interval));
+      autoChatIntervals.current = [];
     };
-  }, [groupId]);
+  }, [groupId, agents.length]);
 
   const fetchConversations = async () => {
     try {
+      console.log("Fetching conversations for group:", groupId);
       const { data, error } = await supabase
         .from('world_conversations')
         .select('*')
@@ -43,6 +48,7 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
         .order('created_at', { ascending: true });
 
       if (error) throw error;
+      console.log("Fetched conversations:", data);
       setConversations(data || []);
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -51,6 +57,7 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
   };
 
   const subscribeToNewMessages = () => {
+    console.log("Setting up realtime subscription for group:", groupId);
     const channel = supabase
       .channel('world_chat')
       .on(
@@ -62,6 +69,7 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
           filter: `world_group_id=eq.${groupId}`
         },
         (payload) => {
+          console.log("New message received:", payload);
           setConversations(prev => [...prev, payload.new as any]);
         }
       )
@@ -71,10 +79,14 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
   };
 
   const generateMessage = async (agent: Agent) => {
-    if (isGenerating) return;
+    if (isGenerating) {
+      console.log("Already generating a message, skipping...");
+      return;
+    }
     
     setIsGenerating(true);
     try {
+      console.log("Generating message for agent:", agent.name);
       const lastConversations = conversations.slice(-5);
       const conversationContext = lastConversations
         .map(c => `${agents.find(a => a.id === c.agent_id)?.name || '未知'}: ${c.content}`)
@@ -99,7 +111,9 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
             },
             {
               role: "user",
-              content: `请根据当前情况，生成一段${agent.name}的对话或行动。当前对话记录：\n${conversationContext}`
+              content: conversationContext ? 
+                `请根据当前对话记录，生成一段${agent.name}的对话或行动。当前对话记录：\n${conversationContext}` :
+                `作为${agent.name}，请开启一段新的对话或行动，展开这个${theme}主题的故事。`
             }
           ],
           max_tokens: 1000,
@@ -108,6 +122,8 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
       });
 
       const data = await response.json();
+      console.log("Generated response:", data);
+      
       if (data.choices && data.choices[0]) {
         const { error } = await supabase
           .from('world_conversations')
@@ -118,23 +134,36 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
           }]);
 
         if (error) throw error;
+        console.log("Successfully inserted new message");
       }
     } catch (error) {
       console.error('Error generating message:', error);
+      toast.error("生成对话失败");
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const startAutoChat = () => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      agents.forEach((agent, index) => {
-        const baseDelay = 5000; // 基础延迟5秒
-        const interval = baseDelay + (index * 2000); // 每个智能体额外增加2秒延迟
-        setInterval(() => generateMessage(agent), interval);
-      });
-    }
+  const initializeAutoChat = () => {
+    console.log("Initializing auto chat for agents:", agents);
+    // 清除现有的定时器
+    autoChatIntervals.current.forEach(interval => clearInterval(interval));
+    autoChatIntervals.current = [];
+
+    agents.forEach((agent, index) => {
+      const baseDelay = 5000; // 基础延迟5秒
+      const interval = baseDelay + (index * 2000); // 每个智能体额外增加2秒延迟
+      console.log(`Setting up auto chat for ${agent.name} with interval ${interval}ms`);
+      
+      // 立即生成一条消息
+      if (conversations.length === 0) {
+        setTimeout(() => generateMessage(agent), index * 2000);
+      }
+      
+      // 设置定期生成消息的定时器
+      const intervalId = setInterval(() => generateMessage(agent), interval);
+      autoChatIntervals.current.push(intervalId);
+    });
   };
 
   return (
