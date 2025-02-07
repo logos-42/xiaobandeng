@@ -21,6 +21,7 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
   
   const [isGenerating, setIsGenerating] = useState(false);
   const autoChatIntervals = useRef<number[]>([]);
+  const initialTimeouts = useRef<NodeJS.Timeout[]>([]);
 
   useEffect(() => {
     console.log("WorldGroupChat mounted with groupId:", groupId);
@@ -32,9 +33,11 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
       if (channel) {
         supabase.removeChannel(channel);
       }
-      // 清除所有自动聊天的定时器
+      // 清除所有定时器
       autoChatIntervals.current.forEach(interval => clearInterval(interval));
+      initialTimeouts.current.forEach(timeout => clearTimeout(timeout));
       autoChatIntervals.current = [];
+      initialTimeouts.current = [];
     };
   }, [groupId, agents.length]);
 
@@ -148,7 +151,9 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
     console.log("Initializing auto chat for agents:", agents);
     // 清除现有的定时器
     autoChatIntervals.current.forEach(interval => clearInterval(interval));
+    initialTimeouts.current.forEach(timeout => clearTimeout(timeout));
     autoChatIntervals.current = [];
+    initialTimeouts.current = [];
 
     agents.forEach((agent, index) => {
       const baseDelay = 5000; // 基础延迟5秒
@@ -157,7 +162,8 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
       
       // 立即生成一条消息
       if (conversations.length === 0) {
-        setTimeout(() => generateMessage(agent), index * 2000);
+        const timeout = setTimeout(() => generateMessage(agent), index * 2000);
+        initialTimeouts.current.push(timeout);
       }
       
       // 设置定期生成消息的定时器
