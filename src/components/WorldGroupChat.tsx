@@ -20,8 +20,8 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
   }>>([]);
   
   const [isGenerating, setIsGenerating] = useState(false);
-  const autoChatIntervals = useRef<number[]>([]);
-  const initialTimeouts = useRef<NodeJS.Timeout[]>([]);
+  const autoChatIntervals = useRef<ReturnType<typeof setInterval>[]>([]);
+  const initialTimeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     console.log("WorldGroupChat mounted with groupId:", groupId);
