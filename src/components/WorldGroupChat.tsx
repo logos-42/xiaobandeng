@@ -33,7 +33,6 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
       if (channel) {
         supabase.removeChannel(channel);
       }
-      // 清除所有定时器
       autoChatIntervals.current.forEach(interval => clearInterval(interval));
       initialTimeouts.current.forEach(timeout => clearTimeout(timeout));
       autoChatIntervals.current = [];
@@ -95,14 +94,14 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
         .map(c => `${agents.find(a => a.id === c.agent_id)?.name || '未知'}: ${c.content}`)
         .join('\n');
 
-      const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+      const response = await fetch("https://api.perplexity.ai/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer sk-680da8e9dcb74c2dac7a60f356a16e65`
+          "Authorization": `Bearer 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`
         },
         body: JSON.stringify({
-          model: "deepseek-chat",
+          model: "llama-3.1-sonar-small-128k-online",
           messages: [
             {
               role: "system",
