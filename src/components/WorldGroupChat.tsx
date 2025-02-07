@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useRef } from "react";
 import { Agent } from "@/types/agent";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -17,11 +18,20 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
     agent_id: string;
     created_at: string;
   }>>([]);
+  
+  const [isGenerating, setIsGenerating] = useState(false);
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
     fetchConversations();
-    subscribeToNewMessages();
+    const channel = subscribeToNewMessages();
     startAutoChat();
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, [groupId]);
 
   const fetchConversations = async () => {
@@ -57,13 +67,19 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return channel;
   };
 
   const generateMessage = async (agent: Agent) => {
+    if (isGenerating) return;
+    
+    setIsGenerating(true);
     try {
+      const lastConversations = conversations.slice(-5);
+      const conversationContext = lastConversations
+        .map(c => `${agents.find(a => a.id === c.agent_id)?.name || '未知'}: ${c.content}`)
+        .join('\n');
+
       const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -75,12 +91,15 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
           messages: [
             {
               role: "system",
-              content: `你是${agent.name}，在一个${theme}世界观的故事中。请基于当前的对话记录，生成一段富有创意的对话或行动。记住要符合你的角色特点和世界观设定。`
+              content: `你是${agent.name}，在一个${theme}世界观的故事中。根据你的角色特点(${agent.description})生成对话或行动。要求：
+              1. 对话要有趣且富有创意
+              2. 要继续推进故事发展
+              3. 要与其他角色互动
+              4. 符合${theme}的世界观设定`
             },
             {
               role: "user",
-              content: `请根据当前情况，生成一段${agent.name}的对话或行动。当前对话记录：${conversations.map(c => 
-                `${agents.find(a => a.id === c.agent_id)?.name || '未知'}: ${c.content}`).join('\n')}`
+              content: `请根据当前情况，生成一段${agent.name}的对话或行动。当前对话记录：\n${conversationContext}`
             }
           ],
           max_tokens: 1000,
@@ -102,14 +121,20 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
       }
     } catch (error) {
       console.error('Error generating message:', error);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
   const startAutoChat = () => {
-    agents.forEach(agent => {
-      const interval = Math.random() * 20000 + 10000; // 10-30秒随机间隔
-      setInterval(() => generateMessage(agent), interval);
-    });
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      agents.forEach((agent, index) => {
+        const baseDelay = 5000; // 基础延迟5秒
+        const interval = baseDelay + (index * 2000); // 每个智能体额外增加2秒延迟
+        setInterval(() => generateMessage(agent), interval);
+      });
+    }
   };
 
   return (
