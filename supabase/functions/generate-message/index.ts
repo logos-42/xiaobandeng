@@ -17,40 +17,40 @@ serve(async (req) => {
   try {
     // Validate API key first
     if (!DEEPSEEK_API_KEY) {
-      console.error('DEEPSEEK_API_KEY not found in environment variables');
-      throw new Error('Configuration error: DeepSeek API key is missing');
+      console.error('DEEPSEEK_API_KEY not found in environment variables')
+      throw new Error('Configuration error: DeepSeek API key is missing')
     }
 
     // Parse request body
-    const body = await req.text();
-    console.log('Received request body:', body);
+    const body = await req.text()
+    console.log('Received request body:', body)
     
-    let requestData;
+    let requestData
     try {
-      requestData = JSON.parse(body);
+      requestData = JSON.parse(body)
     } catch (e) {
-      console.error('Failed to parse request JSON:', e);
-      throw new Error('Invalid request format: Unable to parse JSON');
+      console.error('Failed to parse request JSON:', e)
+      throw new Error('Invalid request format: Unable to parse JSON')
     }
 
     // Validate request data
-    const { agent, context, theme } = requestData;
+    const { agent, context, theme } = requestData
     if (!agent || !agent.name) {
-      throw new Error('Invalid request: Missing agent information');
+      throw new Error('Invalid request: Missing agent information')
     }
 
-    console.log('Processing request for agent:', agent.name);
-    console.log('Context:', context);
-    console.log('Theme:', theme);
+    console.log('Processing request for agent:', agent.name)
+    console.log('Context:', context)
+    console.log('Theme:', theme)
     
     // Initialize OpenAI client with DeepSeek configuration
     const openai = new OpenAI({
       apiKey: DEEPSEEK_API_KEY,
       baseURL: "https://api.deepseek.com/v1",
-    });
+    })
 
     // Make API call
-    console.log('Making API call to DeepSeek...');
+    console.log('Making API call to DeepSeek...')
     const completion = await openai.chat.completions.create({
       model: "deepseek-chat",
       messages: [
@@ -69,13 +69,13 @@ serve(async (req) => {
             `作为${agent.name}，请开启一段新的对话或行动，展开这个${theme}主题的故事。`
         }
       ],
-      max_tokens: 1000,
+      max_tokens: 500,  // Reduced from 1000 to help with potential timeout issues
       temperature: 0.7,
-    });
+    })
 
-    console.log('Received response from DeepSeek');
-    const content = completion.choices[0]?.message?.content;
-    console.log('Generated content:', content);
+    console.log('Received response from DeepSeek')
+    const content = completion.choices[0]?.message?.content
+    console.log('Generated content:', content)
 
     // Return response
     return new Response(
@@ -92,23 +92,23 @@ serve(async (req) => {
           'Content-Type': 'application/json'
         }
       }
-    );
+    )
 
   } catch (error) {
-    console.error('Error in generate-message function:', error);
+    console.error('Error in generate-message function:', error)
     
-    let errorMessage = 'Failed to generate message';
-    let errorDetails = error.toString();
+    let errorMessage = 'Failed to generate message'
+    let errorDetails = error.toString()
 
     // Try to extract more detailed error information
     try {
       if (error.response) {
-        const responseText = await error.response.text();
-        console.error('DeepSeek API error response:', responseText);
-        errorMessage = `DeepSeek API Error: ${responseText}`;
+        const responseText = await error.response.text()
+        console.error('DeepSeek API error response:', responseText)
+        errorMessage = `DeepSeek API Error: ${responseText}`
       }
     } catch (e) {
-      console.error('Error processing error response:', e);
+      console.error('Error processing error response:', e)
     }
 
     return new Response(
@@ -123,6 +123,6 @@ serve(async (req) => {
           'Content-Type': 'application/json'
         }
       }
-    );
+    )
   }
 })
