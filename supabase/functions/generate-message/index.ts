@@ -2,10 +2,21 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY')
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
 
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
   try {
     const { agent, context, theme } = await req.json()
+    console.log('Generating message for agent:', agent.name)
+    console.log('Context:', context)
     
     const response = await fetch("https://api.perplexity.ai/chat/completions", {
       method: "POST",
@@ -37,14 +48,23 @@ serve(async (req) => {
     })
 
     const data = await response.json()
+    console.log('Generated response:', data)
     
     return new Response(JSON.stringify(data), {
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        ...corsHeaders,
+        "Content-Type": "application/json" 
+      },
     })
   } catch (error) {
+    console.error('Error generating message:', error)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        ...corsHeaders,
+        "Content-Type": "application/json" 
+      },
     })
   }
 })
+

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Agent } from "@/types/agent";
 import { supabase } from "@/integrations/supabase/client";
@@ -117,7 +118,7 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
       }
     } catch (error) {
       console.error('Error generating message:', error);
-      toast.error("生成对话失败");
+      toast.error("生成对话失败，请检查API密钥是否正确设置");
     } finally {
       setIsGenerating(false);
     }
@@ -169,6 +170,11 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
               <p className="mt-1 whitespace-pre-wrap">{conversation.content}</p>
             </div>
           )}
+        )}
+        {conversations.length === 0 && (
+          <div className="text-center text-muted-foreground py-4">
+            正在准备对话...
+          </div>
         )}
       </div>
     </div>
