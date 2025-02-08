@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Agent } from "@/types/agent";
 import { supabase } from "@/integrations/supabase/client";
@@ -94,45 +93,23 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
         .map(c => `${agents.find(a => a.id === c.agent_id)?.name || '未知'}: ${c.content}`)
         .join('\n');
 
-      const response = await fetch("https://api.perplexity.ai/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer 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`
-        },
-        body: JSON.stringify({
-          model: "llama-3.1-sonar-small-128k-online",
-          messages: [
-            {
-              role: "system",
-              content: `你是${agent.name}，在一个${theme}世界观的故事中。根据你的角色特点(${agent.description})生成对话或行动。要求：
-              1. 对话要有趣且富有创意
-              2. 要继续推进故事发展
-              3. 要与其他角色互动
-              4. 符合${theme}的世界观设定`
-            },
-            {
-              role: "user",
-              content: conversationContext ? 
-                `请根据当前对话记录，生成一段${agent.name}的对话或行动。当前对话记录：\n${conversationContext}` :
-                `作为${agent.name}，请开启一段新的对话或行动，展开这个${theme}主题的故事。`
-            }
-          ],
-          max_tokens: 1000,
-          temperature: 0.8
-        })
+      const { data: generatedData, error: functionError } = await supabase.functions.invoke('generate-message', {
+        body: {
+          agent,
+          context: conversationContext,
+          theme
+        }
       });
 
-      const data = await response.json();
-      console.log("Generated response:", data);
+      if (functionError) throw functionError;
       
-      if (data.choices && data.choices[0]) {
+      if (generatedData.choices && generatedData.choices[0]) {
         const { error } = await supabase
           .from('world_conversations')
           .insert([{
             world_group_id: groupId,
             agent_id: agent.id,
-            content: data.choices[0].message.content
+            content: generatedData.choices[0].message.content
           }]);
 
         if (error) throw error;
