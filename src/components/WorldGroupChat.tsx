@@ -20,25 +20,33 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
   }>>([]);
   
   const [isGenerating, setIsGenerating] = useState(false);
-  const autoChatIntervals = useRef<ReturnType<typeof setInterval>[]>([]);
-  const initialTimeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [isPaused, setIsPaused] = useState(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval>>();
+  const currentAgentIndex = useRef(0);
+
+  // Remove duplicate agents by ID
+  const uniqueAgents = agents.filter((agent, index, self) =>
+    index === self.findIndex((a) => a.id === agent.id)
+  );
 
   useEffect(() => {
     console.log("WorldGroupChat mounted with groupId:", groupId);
     fetchConversations();
     const channel = subscribeToNewMessages();
-    initializeAutoChat();
+    
+    if (!isPaused) {
+      initializeAutoChat();
+    }
 
     return () => {
       if (channel) {
         supabase.removeChannel(channel);
       }
-      autoChatIntervals.current.forEach(interval => clearInterval(interval));
-      initialTimeouts.current.forEach(timeout => clearTimeout(timeout));
-      autoChatIntervals.current = [];
-      initialTimeouts.current = [];
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
     };
-  }, [groupId, agents.length]);
+  }, [groupId, isPaused]);
 
   const fetchConversations = async () => {
     try {
@@ -81,8 +89,8 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
   };
 
   const generateMessage = async (agent: Agent) => {
-    if (isGenerating) {
-      console.log("Already generating a message, skipping...");
+    if (isGenerating || isPaused) {
+      console.log("Skipping message generation - generating:", isGenerating, "paused:", isPaused);
       return;
     }
     
@@ -91,7 +99,7 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
       console.log("Generating message for agent:", agent.name);
       const lastConversations = conversations.slice(-5);
       const conversationContext = lastConversations
-        .map(c => `${agents.find(a => a.id === c.agent_id)?.name || '未知'}: ${c.content}`)
+        .map(c => `${uniqueAgents.find(a => a.id === c.agent_id)?.name || '未知'}: ${c.content}`)
         .join('\n');
 
       const { data: generatedData, error: functionError } = await supabase.functions.invoke('generate-message', {
@@ -125,40 +133,48 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
   };
 
   const initializeAutoChat = () => {
-    console.log("Initializing auto chat for agents:", agents);
-    // 清除现有的定时器
-    autoChatIntervals.current.forEach(interval => clearInterval(interval));
-    initialTimeouts.current.forEach(timeout => clearTimeout(timeout));
-    autoChatIntervals.current = [];
-    initialTimeouts.current = [];
+    // Clear existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
 
-    agents.forEach((agent, index) => {
-      const baseDelay = 5000; // 基础延迟5秒
-      const interval = baseDelay + (index * 2000); // 每个智能体额外增加2秒延迟
-      console.log(`Setting up auto chat for ${agent.name} with interval ${interval}ms`);
-      
-      // 立即生成一条消息
-      if (conversations.length === 0) {
-        const timeout = setTimeout(() => generateMessage(agent), index * 2000);
-        initialTimeouts.current.push(timeout);
+    // Initialize with first message if no conversations exist
+    if (conversations.length === 0 && uniqueAgents.length > 0) {
+      generateMessage(uniqueAgents[0]);
+    }
+
+    // Set up rotating message generation
+    intervalRef.current = setInterval(() => {
+      if (!isPaused && uniqueAgents.length > 0) {
+        const nextAgent = uniqueAgents[currentAgentIndex.current];
+        generateMessage(nextAgent);
+        currentAgentIndex.current = (currentAgentIndex.current + 1) % uniqueAgents.length;
       }
-      
-      // 设置定期生成消息的定时器
-      const intervalId = setInterval(() => generateMessage(agent), interval);
-      autoChatIntervals.current.push(intervalId);
-    });
+    }, 8000); // Generate a message every 8 seconds
   };
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">{groupName}</h3>
-        <span className="text-sm text-muted-foreground">主题：{theme}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">主题：{theme}</span>
+          <button
+            onClick={() => setIsPaused(!isPaused)}
+            className={`px-3 py-1 rounded text-sm ${
+              isPaused 
+                ? "bg-green-500 hover:bg-green-600 text-white" 
+                : "bg-red-500 hover:bg-red-600 text-white"
+            }`}
+          >
+            {isPaused ? "继续对话" : "暂停对话"}
+          </button>
+        </div>
       </div>
       
       <div className="space-y-3 max-h-[500px] overflow-y-auto">
         {conversations.map((conversation) => {
-          const agent = agents.find(a => a.id === conversation.agent_id);
+          const agent = uniqueAgents.find(a => a.id === conversation.agent_id);
           return (
             <div key={conversation.id} className="p-3 rounded-lg bg-secondary/20">
               <div className="flex justify-between items-start">
@@ -180,3 +196,4 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
     </div>
   );
 };
+
