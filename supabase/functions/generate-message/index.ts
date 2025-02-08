@@ -21,22 +21,39 @@ serve(async (req) => {
       throw new Error('Configuration error: DeepSeek API key is missing')
     }
 
-    // Parse request body
-    const body = await req.text()
-    console.log('Received request body:', body)
-    
+    // Parse request body with better error handling
     let requestData
     try {
-      requestData = JSON.parse(body)
+      requestData = await req.json() // Using .json() instead of .text() for automatic parsing
+      console.log('Received request data:', JSON.stringify(requestData))
     } catch (e) {
       console.error('Failed to parse request JSON:', e)
-      throw new Error('Invalid request format: Unable to parse JSON')
+      return new Response(
+        JSON.stringify({
+          error: 'Invalid request format',
+          details: 'Unable to parse JSON body'
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
     }
 
-    // Validate request data
+    // Validate request data structure
     const { agent, context, theme } = requestData
     if (!agent || !agent.name) {
-      throw new Error('Invalid request: Missing agent information')
+      console.error('Invalid request - missing agent information:', requestData)
+      return new Response(
+        JSON.stringify({
+          error: 'Invalid request',
+          details: 'Missing required agent information'
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
     }
 
     console.log('Processing request for agent:', agent.name)
@@ -69,7 +86,7 @@ serve(async (req) => {
             `作为${agent.name}，请开启一段新的对话或行动，展开这个${theme}主题的故事。`
         }
       ],
-      max_tokens: 500,  // Reduced from 1000 to help with potential timeout issues
+      max_tokens: 500,
       temperature: 0.7,
     })
 
@@ -77,12 +94,16 @@ serve(async (req) => {
     const content = completion.choices[0]?.message?.content
     console.log('Generated content:', content)
 
-    // Return response
+    if (!content) {
+      throw new Error('No content generated from DeepSeek API')
+    }
+
+    // Return successful response
     return new Response(
       JSON.stringify({
         choices: [{
           message: {
-            content: content || '对不起，我暂时无法生成回应。'
+            content: content
           }
         }]
       }),
@@ -101,14 +122,14 @@ serve(async (req) => {
     let errorDetails = error.toString()
 
     // Try to extract more detailed error information
-    try {
-      if (error.response) {
+    if (error.response) {
+      try {
         const responseText = await error.response.text()
         console.error('DeepSeek API error response:', responseText)
         errorMessage = `DeepSeek API Error: ${responseText}`
+      } catch (e) {
+        console.error('Error processing error response:', e)
       }
-    } catch (e) {
-      console.error('Error processing error response:', e)
     }
 
     return new Response(
