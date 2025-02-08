@@ -19,9 +19,26 @@ serve(async (req) => {
       throw new Error('DeepSeek API key is not configured');
     }
 
-    const { agent, context, theme } = await req.json()
-    console.log('Generating message for agent:', agent.name)
-    console.log('Context:', context)
+    const body = await req.text();
+    console.log('Request body:', body);
+    
+    let requestData;
+    try {
+      requestData = JSON.parse(body);
+    } catch (e) {
+      console.error('Error parsing request JSON:', e);
+      throw new Error('Invalid JSON in request body');
+    }
+
+    const { agent, context, theme } = requestData;
+    
+    if (!agent || !agent.name) {
+      throw new Error('Invalid request: missing agent information');
+    }
+
+    console.log('Generating message for agent:', agent.name);
+    console.log('Context:', context);
+    console.log('Theme:', theme);
     
     const openai = new OpenAI({
       baseURL: "https://api.deepseek.com/v1",
@@ -51,9 +68,16 @@ serve(async (req) => {
       temperature: 0.8
     });
 
-    console.log('DeepSeek API response received:', completion);
+    console.log('DeepSeek API response received');
+    console.log('Response content:', completion.choices[0]?.message?.content);
     
-    return new Response(JSON.stringify(completion), {
+    return new Response(JSON.stringify({
+      choices: [{
+        message: {
+          content: completion.choices[0]?.message?.content || '对不起，我暂时无法生成回应。'
+        }
+      }]
+    }), {
       headers: { 
         ...corsHeaders,
         "Content-Type": "application/json" 
@@ -61,16 +85,22 @@ serve(async (req) => {
     })
   } catch (error) {
     console.error('Error generating message:', error);
-    // Include more detailed error information
-    let errorMessage = error.message;
-    if (error.response) {
-      // If there's a response from DeepSeek API, include it
-      errorMessage = `DeepSeek API Error: ${await error.response.text()}`;
+    let errorMessage = 'An error occurred while generating the message';
+    let errorDetails = error.toString();
+
+    try {
+      if (error.response) {
+        const responseText = await error.response.text();
+        console.error('DeepSeek API error response:', responseText);
+        errorMessage = `DeepSeek API Error: ${responseText}`;
+      }
+    } catch (e) {
+      console.error('Error processing error response:', e);
     }
     
     return new Response(JSON.stringify({ 
       error: errorMessage,
-      details: error.toString()
+      details: errorDetails
     }), {
       status: 500,
       headers: { 
