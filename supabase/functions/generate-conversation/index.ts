@@ -9,20 +9,44 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const { agents, prompt } = await req.json()
+    // Validate API key first
+    if (!DEEPSEEK_API_KEY) {
+      console.error('DEEPSEEK_API_KEY not found in environment variables')
+      throw new Error('Configuration error: DeepSeek API key is missing')
+    }
+
+    // Parse request body
+    const body = await req.text()
+    console.log('Received request body:', body)
+    
+    let requestData
+    try {
+      requestData = JSON.parse(body)
+    } catch (e) {
+      console.error('Failed to parse request JSON:', e)
+      throw new Error('Invalid request format: Unable to parse JSON')
+    }
+
+    const { agents, prompt } = requestData
+    if (!agents || !Array.isArray(agents) || agents.length === 0) {
+      throw new Error('Invalid request: Missing or empty agents array')
+    }
+
     console.log('Generating conversation for agents:', agents.map((a: any) => a.name).join(', '))
     console.log('Prompt:', prompt)
     
     const openai = new OpenAI({
+      apiKey: DEEPSEEK_API_KEY,
       baseURL: "https://api.deepseek.com/v1",
-      apiKey: DEEPSEEK_API_KEY || '',
     })
 
+    console.log('Making API call to DeepSeek...')
     const completion = await openai.chat.completions.create({
       model: "deepseek-chat",
       messages: [
@@ -36,26 +60,58 @@ serve(async (req) => {
           content: prompt
         }
       ],
-      max_tokens: 2000,
-      temperature: 0.8
+      max_tokens: 1000,
+      temperature: 0.7
     })
 
-    console.log('Generated response:', completion)
-    
-    return new Response(JSON.stringify(completion), {
-      headers: { 
-        ...corsHeaders,
-        "Content-Type": "application/json" 
-      },
-    })
+    console.log('Received response from DeepSeek')
+    const content = completion.choices[0]?.message?.content
+    console.log('Generated content:', content)
+
+    return new Response(
+      JSON.stringify({
+        choices: [{
+          message: {
+            content: content || '对不起，我暂时无法生成对话。'
+          }
+        }]
+      }), 
+      {
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
   } catch (error) {
-    console.error('Error generating conversation:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { 
-        ...corsHeaders,
-        "Content-Type": "application/json" 
-      },
-    })
+    console.error('Error in generate-conversation function:', error)
+    
+    let errorMessage = 'Failed to generate conversation'
+    let errorDetails = error.toString()
+
+    // Try to extract more detailed error information
+    try {
+      if (error.response) {
+        const responseText = await error.response.text()
+        console.error('DeepSeek API error response:', responseText)
+        errorMessage = `DeepSeek API Error: ${responseText}`
+      }
+    } catch (e) {
+      console.error('Error processing error response:', e)
+    }
+
+    return new Response(
+      JSON.stringify({
+        error: errorMessage,
+        details: errorDetails
+      }),
+      {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
+    )
   }
 })
