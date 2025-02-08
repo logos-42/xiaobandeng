@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { OpenAI } from "https://deno.land/x/openai@v4.24.0/mod.ts"
 
-const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY')
+const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY')
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -19,12 +19,12 @@ serve(async (req) => {
     console.log('Context:', context)
     
     const openai = new OpenAI({
-      baseURL: "https://api.perplexity.ai",
-      apiKey: PERPLEXITY_API_KEY || '',
+      baseURL: "https://api.deepseek.com/v1",
+      apiKey: DEEPSEEK_API_KEY || '',
     });
 
     const completion = await openai.chat.completions.create({
-      model: "llama-3.1-sonar-small-128k-online",
+      model: "deepseek-chat",
       messages: [
         {
           role: "system",
@@ -41,7 +41,7 @@ serve(async (req) => {
             `作为${agent.name}，请开启一段新的对话或行动，展开这个${theme}主题的故事。`
         }
       ],
-      max_tokens: 1000,
+      max_tokens: 2000,
       temperature: 0.8
     });
 
