@@ -9,42 +9,47 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
+    // Validate API key first
     if (!DEEPSEEK_API_KEY) {
       console.error('DEEPSEEK_API_KEY not found in environment variables');
-      throw new Error('DeepSeek API key is not configured');
+      throw new Error('Configuration error: DeepSeek API key is missing');
     }
 
+    // Parse request body
     const body = await req.text();
-    console.log('Request body:', body);
+    console.log('Received request body:', body);
     
     let requestData;
     try {
       requestData = JSON.parse(body);
     } catch (e) {
-      console.error('Error parsing request JSON:', e);
-      throw new Error('Invalid JSON in request body');
+      console.error('Failed to parse request JSON:', e);
+      throw new Error('Invalid request format: Unable to parse JSON');
     }
 
+    // Validate request data
     const { agent, context, theme } = requestData;
-    
     if (!agent || !agent.name) {
-      throw new Error('Invalid request: missing agent information');
+      throw new Error('Invalid request: Missing agent information');
     }
 
-    console.log('Generating message for agent:', agent.name);
+    console.log('Processing request for agent:', agent.name);
     console.log('Context:', context);
     console.log('Theme:', theme);
     
+    // Initialize OpenAI client with DeepSeek configuration
     const openai = new OpenAI({
-      baseURL: "https://api.deepseek.com/v1",
       apiKey: DEEPSEEK_API_KEY,
+      baseURL: "https://api.deepseek.com/v1",
     });
 
+    // Make API call
     console.log('Making API call to DeepSeek...');
     const completion = await openai.chat.completions.create({
       model: "deepseek-chat",
@@ -64,30 +69,38 @@ serve(async (req) => {
             `作为${agent.name}，请开启一段新的对话或行动，展开这个${theme}主题的故事。`
         }
       ],
-      max_tokens: 2000,
-      temperature: 0.8
+      max_tokens: 1000,
+      temperature: 0.7,
     });
 
-    console.log('DeepSeek API response received');
-    console.log('Response content:', completion.choices[0]?.message?.content);
-    
-    return new Response(JSON.stringify({
-      choices: [{
-        message: {
-          content: completion.choices[0]?.message?.content || '对不起，我暂时无法生成回应。'
+    console.log('Received response from DeepSeek');
+    const content = completion.choices[0]?.message?.content;
+    console.log('Generated content:', content);
+
+    // Return response
+    return new Response(
+      JSON.stringify({
+        choices: [{
+          message: {
+            content: content || '对不起，我暂时无法生成回应。'
+          }
+        }]
+      }),
+      {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
         }
-      }]
-    }), {
-      headers: { 
-        ...corsHeaders,
-        "Content-Type": "application/json" 
-      },
-    })
+      }
+    );
+
   } catch (error) {
-    console.error('Error generating message:', error);
-    let errorMessage = 'An error occurred while generating the message';
+    console.error('Error in generate-message function:', error);
+    
+    let errorMessage = 'Failed to generate message';
     let errorDetails = error.toString();
 
+    // Try to extract more detailed error information
     try {
       if (error.response) {
         const responseText = await error.response.text();
@@ -97,16 +110,19 @@ serve(async (req) => {
     } catch (e) {
       console.error('Error processing error response:', e);
     }
-    
-    return new Response(JSON.stringify({ 
-      error: errorMessage,
-      details: errorDetails
-    }), {
-      status: 500,
-      headers: { 
-        ...corsHeaders,
-        "Content-Type": "application/json" 
-      },
-    })
+
+    return new Response(
+      JSON.stringify({
+        error: errorMessage,
+        details: errorDetails
+      }),
+      {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
   }
 })
