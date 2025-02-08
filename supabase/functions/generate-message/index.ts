@@ -14,15 +14,21 @@ serve(async (req) => {
   }
 
   try {
+    if (!DEEPSEEK_API_KEY) {
+      console.error('DEEPSEEK_API_KEY not found in environment variables');
+      throw new Error('DeepSeek API key is not configured');
+    }
+
     const { agent, context, theme } = await req.json()
     console.log('Generating message for agent:', agent.name)
     console.log('Context:', context)
     
     const openai = new OpenAI({
       baseURL: "https://api.deepseek.com/v1",
-      apiKey: DEEPSEEK_API_KEY || '',
+      apiKey: DEEPSEEK_API_KEY,
     });
 
+    console.log('Making API call to DeepSeek...');
     const completion = await openai.chat.completions.create({
       model: "deepseek-chat",
       messages: [
@@ -45,7 +51,7 @@ serve(async (req) => {
       temperature: 0.8
     });
 
-    console.log('Generated response:', completion)
+    console.log('DeepSeek API response received:', completion);
     
     return new Response(JSON.stringify(completion), {
       headers: { 
@@ -54,8 +60,18 @@ serve(async (req) => {
       },
     })
   } catch (error) {
-    console.error('Error generating message:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('Error generating message:', error);
+    // Include more detailed error information
+    let errorMessage = error.message;
+    if (error.response) {
+      // If there's a response from DeepSeek API, include it
+      errorMessage = `DeepSeek API Error: ${await error.response.text()}`;
+    }
+    
+    return new Response(JSON.stringify({ 
+      error: errorMessage,
+      details: error.toString()
+    }), {
       status: 500,
       headers: { 
         ...corsHeaders,
