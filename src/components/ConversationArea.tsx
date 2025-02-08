@@ -27,31 +27,15 @@ export const ConversationArea = ({
 
     setIsLoading(true);
     try {
-      const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer sk-680da8e9dcb74c2dac7a60f356a16e65`
-        },
-        body: JSON.stringify({
-          model: "deepseek-chat",
-          messages: [
-            {
-              role: "system",
-              content: `你是一个创新的对话生成器。请基于以下智能体的特点，生成一段富有新意的对话：${selectedAgents.map(agent => 
-                `${agent.name}(${agent.description})`).join(", ")}。对话应该围绕主题："${userPrompt}"展开，保持新颖性和创意性。`
-            },
-            {
-              role: "user",
-              content: userPrompt
-            }
-          ],
-          max_tokens: 2000,
-          temperature: 0.8
-        })
+      const { data, error } = await supabase.functions.invoke('generate-conversation', {
+        body: {
+          agents: selectedAgents,
+          prompt: userPrompt
+        }
       });
 
-      const data = await response.json();
+      if (error) throw error;
+
       if (data.choices && data.choices[0]) {
         onStartConversation(data.choices[0].message.content);
         
