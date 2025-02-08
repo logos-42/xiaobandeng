@@ -24,7 +24,7 @@ serve(async (req) => {
     // Parse request body with better error handling
     let requestData
     try {
-      requestData = await req.json() // Using .json() instead of .text() for automatic parsing
+      requestData = await req.json()
       console.log('Received request data:', JSON.stringify(requestData))
     } catch (e) {
       console.error('Failed to parse request JSON:', e)
@@ -66,9 +66,9 @@ serve(async (req) => {
       baseURL: "https://api.deepseek.com/v1",
     })
 
-    // Make API call
+    // Make API call with timeout
     console.log('Making API call to DeepSeek...')
-    const completion = await openai.chat.completions.create({
+    const completionPromise = openai.chat.completions.create({
       model: "deepseek-chat",
       messages: [
         {
@@ -86,15 +86,28 @@ serve(async (req) => {
             `作为${agent.name}，请开启一段新的对话或行动，展开这个${theme}主题的故事。`
         }
       ],
-      max_tokens: 500,
+      max_tokens: 300,
       temperature: 0.7,
     })
 
+    // Add timeout to the API call
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('API call timed out')), 10000)
+    })
+
+    console.log('Waiting for DeepSeek response...')
+    const completion = await Promise.race([completionPromise, timeoutPromise])
+      .catch(error => {
+        console.error('Error in API call:', error)
+        throw new Error(`DeepSeek API call failed: ${error.message}`)
+      }) as Awaited<ReturnType<typeof openai.chat.completions.create>>
+
     console.log('Received response from DeepSeek')
-    const content = completion.choices[0]?.message?.content
+    const content = completion?.choices[0]?.message?.content
     console.log('Generated content:', content)
 
     if (!content) {
+      console.error('No content in DeepSeek response:', completion)
       throw new Error('No content generated from DeepSeek API')
     }
 
