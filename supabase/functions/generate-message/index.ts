@@ -73,7 +73,7 @@ serve(async (req) => {
     const openai = new OpenAI({
       apiKey: DEEPSEEK_API_KEY,
       baseURL: "https://api.deepseek.com/v1",
-      timeout: 60000,
+      timeout: 120000, // Increased timeout to 120 seconds
     })
 
     console.log('Making API call to DeepSeek...')
@@ -84,28 +84,36 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `你是${agent.name}，在一个充满无限可能的${theme}世界中。要求根据你的角色特点(${agent.description})生成独特而富有想象力的对话或行动。
+            content: `你是${agent.name}，存在于一个充满无限可能的${theme}世界。要求根据你的角色特点(${agent.description})生成一段极具想象力和创意的对话或行动。
 
-要求：
-1. 对话或行动必须出人意料，打破常规
-2. 可以加入以下元素：
-   - 超现实的想象
-   - 科幻或魔幻的设定
-   - 突发奇想的剧情转折
-   - 令人惊喜的能力或道具
-3. 要与其他角色产生有趣的互动
-4. 完全符合${theme}的世界观，但可以创造性地解释和扩展这个世界
-5. 语言要生动活泼，富有个性
-6. 每句话都要为故事增添一个意想不到的元素`
+创作要求：
+1. 情节必须出人意料，包含以下元素：
+   - 不合常理但有趣的剧情发展
+   - 超现实或科幻的场景描写
+   - 独特而新颖的能力或道具运用
+   - 出乎意料的情节转折
+2. 互动效果要令人惊叹：
+   - 打破传统叙事方式
+   - 创造令人惊喜的效果
+   - 展现独特的角色魅力
+3. 场景描写要充满想象力：
+   - 融入奇幻或科技元素
+   - 创造独特的世界观
+   - 加入新颖的设定
+4. 语言风格要活泼生动：
+   - 对白要富有张力
+   - 加入幽默或荒诞元素
+   - 展现角色个性
+5. 每一个行动或对话都要为故事带来意想不到的发展`
           },
           {
             role: "user",
             content: context ? 
-              `请根据当前对话记录，生成一段充满创意的${agent.name}的对话或行动。当前对话记录：\n${context}` :
-              `作为${agent.name}，请开启一段令人惊喜的对话或行动，在这个${theme}主题的世界中创造独特的故事。`
+              `请根据当前对话记录，续写一段充满创意的${agent.name}的对话或行动。当前对话：\n${context}` :
+              `作为${agent.name}，请展开一段令人惊叹的对话或行动，在这个${theme}主题的世界中创造独特的故事。`
           }
         ],
-        max_tokens: 150,
+        max_tokens: 500,
         temperature: 0.9,
       })
     } catch (apiError) {
@@ -163,4 +171,3 @@ serve(async (req) => {
     )
   }
 })
-
