@@ -15,6 +15,10 @@ serve(async (req) => {
   }
 
   try {
+    // Log the request
+    const requestTime = new Date().toISOString()
+    console.log(`[${requestTime}] Received request`)
+
     // Validate API key first
     if (!DEEPSEEK_API_KEY) {
       console.error('DEEPSEEK_API_KEY not found in environment variables')
@@ -24,9 +28,8 @@ serve(async (req) => {
     // Parse request body with better error handling
     let requestData
     try {
-      const body = await req.text()
-      console.log('Received request body:', body)
-      requestData = JSON.parse(body)
+      requestData = await req.json()
+      console.log('Request data:', JSON.stringify(requestData))
     } catch (e) {
       console.error('Failed to parse request JSON:', e)
       throw new Error('Invalid request format: Unable to parse JSON')
@@ -43,7 +46,7 @@ serve(async (req) => {
     const openai = new OpenAI({
       apiKey: DEEPSEEK_API_KEY,
       baseURL: "https://api.deepseek.com/v1",
-      timeout: 15000, // 15 second timeout
+      timeout: 30000, // Increased timeout to 30 seconds
     })
 
     console.log('Making API call to DeepSeek...')
