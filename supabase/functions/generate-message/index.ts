@@ -7,10 +7,10 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Content-Type': 'application/json'
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests with explicit status
   if (req.method === 'OPTIONS') {
     return new Response(null, { 
       status: 204,
@@ -23,18 +23,16 @@ serve(async (req) => {
       error: 'Method not allowed'
     }), {
       status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: corsHeaders
     })
   }
 
   try {
-    // Validate API key first
     if (!DEEPSEEK_API_KEY) {
       console.error('DEEPSEEK_API_KEY not found in environment variables')
       throw new Error('Configuration error: DeepSeek API key is missing')
     }
 
-    // Parse request body with better error handling
     let requestData
     try {
       requestData = await req.json()
@@ -48,12 +46,11 @@ serve(async (req) => {
         }),
         {
           status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: corsHeaders
         }
       )
     }
 
-    // Validate request data structure
     const { agent, context, theme } = requestData
     if (!agent || !agent.name) {
       console.error('Invalid request - missing agent information:', requestData)
@@ -64,7 +61,7 @@ serve(async (req) => {
         }),
         {
           status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          headers: corsHeaders
         }
       )
     }
@@ -73,14 +70,12 @@ serve(async (req) => {
     console.log('Context:', context)
     console.log('Theme:', theme)
     
-    // Initialize OpenAI client with DeepSeek configuration
     const openai = new OpenAI({
       apiKey: DEEPSEEK_API_KEY,
       baseURL: "https://api.deepseek.com/v1",
       timeout: 60000,
     })
 
-    // Make API call with timeout and error handling
     console.log('Making API call to DeepSeek...')
     let completion
     try {
@@ -89,21 +84,29 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `你是${agent.name}，在一个${theme}世界观的故事中。根据你的角色特点(${agent.description})生成对话或行动。要求：
-            1. 对话要简短且富有创意
-            2. 要继续推进故事发展
-            3. 要与其他角色互动
-            4. 符合${theme}的世界观设定`
+            content: `你是${agent.name}，在一个充满无限可能的${theme}世界中。要求根据你的角色特点(${agent.description})生成独特而富有想象力的对话或行动。
+
+要求：
+1. 对话或行动必须出人意料，打破常规
+2. 可以加入以下元素：
+   - 超现实的想象
+   - 科幻或魔幻的设定
+   - 突发奇想的剧情转折
+   - 令人惊喜的能力或道具
+3. 要与其他角色产生有趣的互动
+4. 完全符合${theme}的世界观，但可以创造性地解释和扩展这个世界
+5. 语言要生动活泼，富有个性
+6. 每句话都要为故事增添一个意想不到的元素`
           },
           {
             role: "user",
             content: context ? 
-              `请根据当前对话记录，生成一段${agent.name}的对话或行动。当前对话记录：\n${context}` :
-              `作为${agent.name}，请开启一段新的对话或行动，展开这个${theme}主题的故事。`
+              `请根据当前对话记录，生成一段充满创意的${agent.name}的对话或行动。当前对话记录：\n${context}` :
+              `作为${agent.name}，请开启一段令人惊喜的对话或行动，在这个${theme}主题的世界中创造独特的故事。`
           }
         ],
         max_tokens: 150,
-        temperature: 0.7,
+        temperature: 0.9,
       })
     } catch (apiError) {
       console.error('DeepSeek API call failed:', apiError)
@@ -119,20 +122,16 @@ serve(async (req) => {
       throw new Error('No content generated from DeepSeek API')
     }
 
-    // Return successful response
     return new Response(
       JSON.stringify({
         choices: [{
           message: {
-            content: content
+            content
           }
         }]
       }),
       {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
+        headers: corsHeaders
       }
     )
 
@@ -142,7 +141,6 @@ serve(async (req) => {
     let errorMessage = 'Failed to generate message'
     let errorDetails = error.toString()
 
-    // Try to extract more detailed error information
     if (error.response) {
       try {
         const responseText = await error.response.text()
@@ -160,11 +158,9 @@ serve(async (req) => {
       }),
       {
         status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
+        headers: corsHeaders
       }
     )
   }
 })
+

@@ -11,11 +11,9 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Log the request
   const requestTime = new Date().toISOString()
   console.log(`[${requestTime}] Received request`)
 
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { 
       status: 204,
@@ -33,13 +31,11 @@ serve(async (req) => {
   }
 
   try {
-    // Validate API key first
     if (!DEEPSEEK_API_KEY) {
       console.error('DEEPSEEK_API_KEY not found in environment variables')
       throw new Error('Configuration error: DeepSeek API key is missing')
     }
 
-    // Parse request body with better error handling
     let requestData
     try {
       requestData = await req.json()
@@ -69,12 +65,19 @@ serve(async (req) => {
       messages: [
         {
           role: "system",
-          content: `你是一个创新的对话生成器。请基于以下智能体的特点，生成一段富有新意的对话：${agents.map((agent: any) => 
-            `${agent.name}(${agent.description})`).join(", ")}。对话应该：
-            1. 每个角色一句话
-            2. 必须以角色名开头，例如"李白：xxxx"
-            3. 围绕主题："${prompt}"展开
-            4. 保持对话连贯性和趣味性`
+          content: `你是一个独特的对话生成器。请基于以下角色特点，生成一段充满创意和想象力的对话：${agents.map((agent: any) => 
+            `${agent.name}(${agent.description})`).join(", ")}。
+
+对话要求：
+1. 每个角色必须说一句话，以角色名开头，如"李白：xxx"
+2. 围绕主题："${prompt}"展开，但要加入意想不到的转折和惊喜
+3. 对话内容要体现以下特点：
+   - 加入奇思妙想和超现实元素
+   - 可以打破常规，融入科幻、魔幻或搞笑元素
+   - 角色之间的互动要出人意料
+   - 避免平淡的日常对话
+4. 语言风格要生动有趣，可以适当夸张
+5. 每句话都要推进剧情，制造悬念或笑点`
         },
         {
           role: "user",
@@ -82,7 +85,7 @@ serve(async (req) => {
         }
       ],
       max_tokens: 150,
-      temperature: 0.7,
+      temperature: 0.9,
     })
 
     console.log('Received response from DeepSeek')
@@ -121,3 +124,4 @@ serve(async (req) => {
     )
   }
 })
+
