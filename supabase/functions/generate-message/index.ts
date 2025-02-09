@@ -64,17 +64,18 @@ serve(async (req) => {
     const openai = new OpenAI({
       apiKey: DEEPSEEK_API_KEY,
       baseURL: "https://api.deepseek.com/v1",
+      timeout: 8000, // 8 second timeout
     })
 
-    // Make API call with timeout
+    // Make API call with shorter timeout
     console.log('Making API call to DeepSeek...')
-    const completionPromise = openai.chat.completions.create({
+    const completion = await openai.chat.completions.create({
       model: "deepseek-chat",
       messages: [
         {
           role: "system",
           content: `你是${agent.name}，在一个${theme}世界观的故事中。根据你的角色特点(${agent.description})生成对话或行动。要求：
-          1. 对话要有趣且富有创意
+          1. 对话要简短且富有创意
           2. 要继续推进故事发展
           3. 要与其他角色互动
           4. 符合${theme}的世界观设定`
@@ -86,21 +87,9 @@ serve(async (req) => {
             `作为${agent.name}，请开启一段新的对话或行动，展开这个${theme}主题的故事。`
         }
       ],
-      max_tokens: 300,
+      max_tokens: 200,
       temperature: 0.7,
     })
-
-    // Add timeout to the API call
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('API call timed out')), 10000)
-    })
-
-    console.log('Waiting for DeepSeek response...')
-    const completion = await Promise.race([completionPromise, timeoutPromise])
-      .catch(error => {
-        console.error('Error in API call:', error)
-        throw new Error(`DeepSeek API call failed: ${error.message}`)
-      }) as Awaited<ReturnType<typeof openai.chat.completions.create>>
 
     console.log('Received response from DeepSeek')
     const content = completion?.choices[0]?.message?.content
