@@ -22,7 +22,6 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
-  const currentAgentIndex = useRef(0);
 
   // Remove duplicate agents by ID
   const uniqueAgents = agents.filter((agent, index, self) =>
@@ -35,7 +34,7 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
     const channel = subscribeToNewMessages();
     
     if (!isPaused) {
-      initializeAutoChat();
+      generateNewConversation();
     }
 
     return () => {
@@ -88,69 +87,65 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
     return channel;
   };
 
-  const generateMessage = async (agent: Agent) => {
+  const generateNewConversation = async () => {
     if (isGenerating || isPaused) {
-      console.log("Skipping message generation - generating:", isGenerating, "paused:", isPaused);
       return;
     }
     
     setIsGenerating(true);
     try {
-      console.log("Generating message for agent:", agent.name);
-      const lastConversations = conversations.slice(-5);
-      const conversationContext = lastConversations
-        .map(c => `${uniqueAgents.find(a => a.id === c.agent_id)?.name || '未知'}: ${c.content}`)
-        .join('\n');
-
-      const { data: generatedData, error: functionError } = await supabase.functions.invoke('generate-message', {
+      console.log("Generating new conversation...");
+      const { data: generatedData, error: functionError } = await supabase.functions.invoke('generate-conversation', {
         body: {
-          agent,
-          context: conversationContext,
-          theme
+          agents: uniqueAgents,
+          prompt: `在${theme}世界观下继续故事情节`
         }
       });
 
       if (functionError) throw functionError;
       
       if (generatedData.choices && generatedData.choices[0]) {
-        const { error } = await supabase
-          .from('world_conversations')
-          .insert([{
-            world_group_id: groupId,
-            agent_id: agent.id,
-            content: generatedData.choices[0].message.content
-          }]);
+        const content = generatedData.choices[0].message.content;
+        const lines = content.split('\n').filter(line => line.trim());
+        
+        for (const line of lines) {
+          const agentMatch = uniqueAgents.find(agent => 
+            line.toLowerCase().startsWith(agent.name.toLowerCase())
+          );
+          
+          if (agentMatch) {
+            const { error } = await supabase
+              .from('world_conversations')
+              .insert([{
+                world_group_id: groupId,
+                agent_id: agentMatch.id,
+                content: line.substring(agentMatch.name.length + 1).trim()
+              }]);
 
-        if (error) throw error;
-        console.log("Successfully inserted new message");
+            if (error) throw error;
+          }
+        }
       }
+      
+      // Schedule next conversation generation after a delay
+      setTimeout(() => {
+        if (!isPaused) {
+          generateNewConversation();
+        }
+      }, 5000);
+      
     } catch (error) {
-      console.error('Error generating message:', error);
-      toast.error("生成对话失败，请检查API密钥是否正确设置");
+      console.error('Error generating conversation:', error);
+      toast.error("生成对话失败");
+      // Retry after a longer delay if there's an error
+      setTimeout(() => {
+        if (!isPaused) {
+          generateNewConversation();
+        }
+      }, 10000);
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  const initializeAutoChat = () => {
-    // Clear existing interval
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    // Initialize with first message if no conversations exist
-    if (conversations.length === 0 && uniqueAgents.length > 0) {
-      generateMessage(uniqueAgents[0]);
-    }
-
-    // Set up rotating message generation
-    intervalRef.current = setInterval(() => {
-      if (!isPaused && uniqueAgents.length > 0) {
-        const nextAgent = uniqueAgents[currentAgentIndex.current];
-        generateMessage(nextAgent);
-        currentAgentIndex.current = (currentAgentIndex.current + 1) % uniqueAgents.length;
-      }
-    }, 8000); // Generate a message every 8 seconds
   };
 
   return (
@@ -160,7 +155,12 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">主题：{theme}</span>
           <button
-            onClick={() => setIsPaused(!isPaused)}
+            onClick={() => {
+              setIsPaused(!isPaused);
+              if (!isPaused) {
+                generateNewConversation();
+              }
+            }}
             className={`px-3 py-1 rounded text-sm ${
               isPaused 
                 ? "bg-green-500 hover:bg-green-600 text-white" 
@@ -196,4 +196,3 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
     </div>
   );
 };
-
