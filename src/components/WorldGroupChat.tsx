@@ -23,6 +23,9 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
   const [isPaused, setIsPaused] = useState(false);
   const [groupMembers, setGroupMembers] = useState<Agent[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const maxRetries = 3;
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     console.log("WorldGroupChat mounted with groupId:", groupId);
@@ -37,11 +40,15 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
     };
   }, [groupId]);
 
   useEffect(() => {
     if (!isPaused && groupMembers.length > 0) {
+      console.log("Starting conversation generation cycle");
       generateNewConversation();
     }
   }, [isPaused, groupMembers]);
@@ -58,7 +65,6 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
       const memberIds = data.map(item => item.agent_id);
       const groupMemberAgents = agents.filter(agent => memberIds.includes(agent.id));
       
-      // Remove duplicates
       const uniqueMembers = groupMemberAgents.filter((member, index, self) =>
         index === self.findIndex((m) => m.id === member.id)
       );
@@ -81,6 +87,7 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
         .order('created_at', { ascending: true });
 
       if (error) throw error;
+      
       console.log("Fetched conversations:", data);
       setConversations(data || []);
     } catch (error) {
@@ -109,6 +116,16 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
       .subscribe();
 
     return channel;
+  };
+
+  const scheduleNextGeneration = (delay: number = 5000) => {
+    if (!isPaused) {
+      console.log(`Scheduling next generation in ${delay}ms`);
+      retryTimeoutRef.current = setTimeout(() => {
+        setRetryCount(0);
+        generateNewConversation();
+      }, delay);
+    }
   };
 
   const generateNewConversation = async () => {
@@ -152,24 +169,21 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
             }
           }
         }
+        setRetryCount(0);
+        scheduleNextGeneration();
       }
-      
-      // Schedule next conversation generation after a delay
-      setTimeout(() => {
-        if (!isPaused) {
-          generateNewConversation();
-        }
-      }, 5000);
-      
     } catch (error) {
       console.error('Error generating conversation:', error);
-      toast.error("生成对话失败");
-      // Retry after a longer delay if there's an error
-      setTimeout(() => {
-        if (!isPaused) {
-          generateNewConversation();
-        }
-      }, 10000);
+      
+      if (retryCount < maxRetries) {
+        const nextRetryDelay = Math.min(5000 * Math.pow(2, retryCount), 30000);
+        console.log(`Retry attempt ${retryCount + 1} scheduled in ${nextRetryDelay}ms`);
+        setRetryCount(prev => prev + 1);
+        scheduleNextGeneration(nextRetryDelay);
+      } else {
+        toast.error("生成对话失败，已达到最大重试次数");
+        setIsPaused(true);
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -184,7 +198,8 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
           <button
             onClick={() => {
               setIsPaused(!isPaused);
-              if (!isPaused) {
+              if (isPaused) {
+                setRetryCount(0);
                 generateNewConversation();
               }
             }}
