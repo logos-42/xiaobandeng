@@ -21,22 +21,15 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [groupMembers, setGroupMembers] = useState<Agent[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
-
-  // Remove duplicate agents by ID
-  const uniqueAgents = agents.filter((agent, index, self) =>
-    index === self.findIndex((a) => a.id === agent.id)
-  );
 
   useEffect(() => {
     console.log("WorldGroupChat mounted with groupId:", groupId);
+    fetchGroupMembers();
     fetchConversations();
     const channel = subscribeToNewMessages();
     
-    if (!isPaused) {
-      generateNewConversation();
-    }
-
     return () => {
       if (channel) {
         supabase.removeChannel(channel);
@@ -45,7 +38,38 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
         clearInterval(intervalRef.current);
       }
     };
-  }, [groupId, isPaused]);
+  }, [groupId]);
+
+  useEffect(() => {
+    if (!isPaused && groupMembers.length > 0) {
+      generateNewConversation();
+    }
+  }, [isPaused, groupMembers]);
+
+  const fetchGroupMembers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('world_group_agents')
+        .select('agent_id')
+        .eq('world_group_id', groupId);
+
+      if (error) throw error;
+
+      const memberIds = data.map(item => item.agent_id);
+      const groupMemberAgents = agents.filter(agent => memberIds.includes(agent.id));
+      
+      // Remove duplicates
+      const uniqueMembers = groupMemberAgents.filter((member, index, self) =>
+        index === self.findIndex((m) => m.id === member.id)
+      );
+
+      console.log("Group members:", uniqueMembers);
+      setGroupMembers(uniqueMembers);
+    } catch (error) {
+      console.error('Error fetching group members:', error);
+      toast.error("获取群组成员失败");
+    }
+  };
 
   const fetchConversations = async () => {
     try {
@@ -88,16 +112,16 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
   };
 
   const generateNewConversation = async () => {
-    if (isGenerating || isPaused) {
+    if (isGenerating || isPaused || groupMembers.length === 0) {
       return;
     }
     
     setIsGenerating(true);
     try {
-      console.log("Generating new conversation...");
+      console.log("Generating new conversation with members:", groupMembers);
       const { data: generatedData, error: functionError } = await supabase.functions.invoke('generate-conversation', {
         body: {
-          agents: uniqueAgents,
+          agents: groupMembers,
           prompt: `在${theme}世界观下继续故事情节`
         }
       });
@@ -109,7 +133,7 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
         const lines = content.split('\n').filter(line => line.trim());
         
         for (const line of lines) {
-          const agentMatch = uniqueAgents.find(agent => 
+          const agentMatch = groupMembers.find(agent => 
             line.toLowerCase().startsWith(agent.name.toLowerCase())
           );
           
@@ -122,7 +146,10 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
                 content: line.substring(agentMatch.name.length + 1).trim()
               }]);
 
-            if (error) throw error;
+            if (error) {
+              console.error('Error inserting conversation:', error);
+              continue;
+            }
           }
         }
       }
@@ -174,7 +201,7 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
       
       <div className="space-y-3 max-h-[500px] overflow-y-auto">
         {conversations.map((conversation) => {
-          const agent = uniqueAgents.find(a => a.id === conversation.agent_id);
+          const agent = groupMembers.find(a => a.id === conversation.agent_id);
           return (
             <div key={conversation.id} className="p-3 rounded-lg bg-secondary/20">
               <div className="flex justify-between items-start">
@@ -196,3 +223,4 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
     </div>
   );
 };
+
