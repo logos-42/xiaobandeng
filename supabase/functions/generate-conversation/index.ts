@@ -21,12 +21,11 @@ serve(async (req) => {
       throw new Error('Configuration error: DeepSeek API key is missing')
     }
 
-    // Parse request body
-    const body = await req.text()
-    console.log('Received request body:', body)
-    
+    // Parse request body with better error handling
     let requestData
     try {
+      const body = await req.text()
+      console.log('Received request body:', body)
       requestData = JSON.parse(body)
     } catch (e) {
       console.error('Failed to parse request JSON:', e)
@@ -44,6 +43,7 @@ serve(async (req) => {
     const openai = new OpenAI({
       apiKey: DEEPSEEK_API_KEY,
       baseURL: "https://api.deepseek.com/v1",
+      timeout: 15000, // 15 second timeout
     })
 
     console.log('Making API call to DeepSeek...')
@@ -53,57 +53,52 @@ serve(async (req) => {
         {
           role: "system",
           content: `你是一个创新的对话生成器。请基于以下智能体的特点，生成一段富有新意的对话：${agents.map((agent: any) => 
-            `${agent.name}(${agent.description})`).join(", ")}。对话应该围绕主题："${prompt}"展开，保持新颖性和创意性。`
+            `${agent.name}(${agent.description})`).join(", ")}。对话应该：
+            1. 每个角色一句话
+            2. 必须以角色名开头，例如"李白：xxxx"
+            3. 围绕主题："${prompt}"展开
+            4. 保持对话连贯性和趣味性`
         },
         {
           role: "user",
           content: prompt
         }
       ],
-      max_tokens: 1000,
-      temperature: 0.7
+      max_tokens: 150,
+      temperature: 0.7,
     })
 
     console.log('Received response from DeepSeek')
     const content = completion.choices[0]?.message?.content
     console.log('Generated content:', content)
 
+    if (!content) {
+      throw new Error('No content generated from DeepSeek API')
+    }
+
     return new Response(
       JSON.stringify({
         choices: [{
           message: {
-            content: content || '对不起，我暂时无法生成对话。'
+            content
           }
         }]
-      }), 
+      }),
       {
-        headers: { 
+        headers: {
           ...corsHeaders,
           'Content-Type': 'application/json'
         }
       }
     )
+
   } catch (error) {
     console.error('Error in generate-conversation function:', error)
     
-    let errorMessage = 'Failed to generate conversation'
-    let errorDetails = error.toString()
-
-    // Try to extract more detailed error information
-    try {
-      if (error.response) {
-        const responseText = await error.response.text()
-        console.error('DeepSeek API error response:', responseText)
-        errorMessage = `DeepSeek API Error: ${responseText}`
-      }
-    } catch (e) {
-      console.error('Error processing error response:', e)
-    }
-
     return new Response(
       JSON.stringify({
-        error: errorMessage,
-        details: errorDetails
+        error: 'Failed to generate conversation',
+        details: error.toString()
       }),
       {
         status: 500,
