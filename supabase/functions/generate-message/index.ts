@@ -64,32 +64,38 @@ serve(async (req) => {
     const openai = new OpenAI({
       apiKey: DEEPSEEK_API_KEY,
       baseURL: "https://api.deepseek.com/v1",
-      timeout: 8000, // 8 second timeout
+      timeout: 15000, // Increased to 15 second timeout
     })
 
-    // Make API call with shorter timeout
+    // Make API call with timeout and error handling
     console.log('Making API call to DeepSeek...')
-    const completion = await openai.chat.completions.create({
-      model: "deepseek-chat",
-      messages: [
-        {
-          role: "system",
-          content: `你是${agent.name}，在一个${theme}世界观的故事中。根据你的角色特点(${agent.description})生成对话或行动。要求：
-          1. 对话要简短且富有创意
-          2. 要继续推进故事发展
-          3. 要与其他角色互动
-          4. 符合${theme}的世界观设定`
-        },
-        {
-          role: "user",
-          content: context ? 
-            `请根据当前对话记录，生成一段${agent.name}的对话或行动。当前对话记录：\n${context}` :
-            `作为${agent.name}，请开启一段新的对话或行动，展开这个${theme}主题的故事。`
-        }
-      ],
-      max_tokens: 200,
-      temperature: 0.7,
-    })
+    let completion
+    try {
+      completion = await openai.chat.completions.create({
+        model: "deepseek-chat",
+        messages: [
+          {
+            role: "system",
+            content: `你是${agent.name}，在一个${theme}世界观的故事中。根据你的角色特点(${agent.description})生成对话或行动。要求：
+            1. 对话要简短且富有创意
+            2. 要继续推进故事发展
+            3. 要与其他角色互动
+            4. 符合${theme}的世界观设定`
+          },
+          {
+            role: "user",
+            content: context ? 
+              `请根据当前对话记录，生成一段${agent.name}的对话或行动。当前对话记录：\n${context}` :
+              `作为${agent.name}，请开启一段新的对话或行动，展开这个${theme}主题的故事。`
+          }
+        ],
+        max_tokens: 150, // Reduced max tokens for faster response
+        temperature: 0.7,
+      })
+    } catch (apiError) {
+      console.error('DeepSeek API call failed:', apiError)
+      throw new Error(`DeepSeek API error: ${apiError.message}`)
+    }
 
     console.log('Received response from DeepSeek')
     const content = completion?.choices[0]?.message?.content
