@@ -10,6 +10,10 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Log the request
+  const requestTime = new Date().toISOString()
+  console.log(`[${requestTime}] Received request`)
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { 
@@ -28,10 +32,6 @@ serve(async (req) => {
   }
 
   try {
-    // Log the request
-    const requestTime = new Date().toISOString()
-    console.log(`[${requestTime}] Received request`)
-
     // Validate API key first
     if (!DEEPSEEK_API_KEY) {
       console.error('DEEPSEEK_API_KEY not found in environment variables')
