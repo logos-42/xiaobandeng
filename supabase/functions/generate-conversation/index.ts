@@ -46,7 +46,7 @@ serve(async (req) => {
     const openai = new OpenAI({
       apiKey: DEEPSEEK_API_KEY,
       baseURL: "https://api.deepseek.com/v1",
-      timeout: 30000, // Increased timeout to 30 seconds
+      timeout: 60000, // Increased timeout to 60 seconds
     })
 
     console.log('Making API call to DeepSeek...')

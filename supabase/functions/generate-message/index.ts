@@ -64,7 +64,7 @@ serve(async (req) => {
     const openai = new OpenAI({
       apiKey: DEEPSEEK_API_KEY,
       baseURL: "https://api.deepseek.com/v1",
-      timeout: 15000, // Increased to 15 second timeout
+      timeout: 60000, // Increased to 60 second timeout
     })
 
     // Make API call with timeout and error handling
@@ -89,7 +89,7 @@ serve(async (req) => {
               `作为${agent.name}，请开启一段新的对话或行动，展开这个${theme}主题的故事。`
           }
         ],
-        max_tokens: 150, // Reduced max tokens for faster response
+        max_tokens: 150,
         temperature: 0.7,
       })
     } catch (apiError) {
