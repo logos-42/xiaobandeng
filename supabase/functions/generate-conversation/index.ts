@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { OpenAI } from "https://deno.land/x/openai@v4.24.0/mod.ts"
 
 const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY')
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -12,17 +13,19 @@ const corsHeaders = {
 
 serve(async (req) => {
   const requestTime = new Date().toISOString()
-  console.log(`[${requestTime}] Received request`)
+  console.log(`[${requestTime}] Function started`)
 
-  // Handle CORS preflight
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { 
+    console.log('Handling CORS preflight request')
+    return new Response(null, {
       status: 204,
-      headers: corsHeaders 
+      headers: corsHeaders
     })
   }
 
   if (req.method !== 'POST') {
+    console.log(`Invalid method: ${req.method}`)
     return new Response(JSON.stringify({
       error: 'Method not allowed'
     }), {
@@ -32,11 +35,13 @@ serve(async (req) => {
   }
 
   try {
+    // Check DeepSeek API key
     if (!DEEPSEEK_API_KEY) {
-      console.error('DEEPSEEK_API_KEY not found in environment variables')
+      console.error('DEEPSEEK_API_KEY not found')
       throw new Error('Configuration error: DeepSeek API key is missing')
     }
 
+    // Parse and validate request data
     let requestData
     try {
       requestData = await req.json()
@@ -48,6 +53,7 @@ serve(async (req) => {
 
     const { agents, prompt } = requestData
     if (!agents || !Array.isArray(agents) || agents.length === 0) {
+      console.error('Invalid agents data:', agents)
       throw new Error('Invalid request: Missing or empty agents array')
     }
 
@@ -112,7 +118,10 @@ serve(async (req) => {
         }]
       }),
       {
-        headers: corsHeaders
+        headers: {
+          ...corsHeaders,
+          'Cache-Control': 'no-store, no-cache, must-revalidate'
+        }
       }
     )
 
@@ -126,7 +135,10 @@ serve(async (req) => {
       }),
       {
         status: 500,
-        headers: corsHeaders
+        headers: {
+          ...corsHeaders,
+          'Cache-Control': 'no-store, no-cache, must-revalidate'
+        }
       }
     )
   }
