@@ -22,10 +22,10 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [groupMembers, setGroupMembers] = useState<Agent[]>([]);
-  const intervalRef = useRef<ReturnType<typeof setInterval>>();
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const maxRetries = 3;
   const [retryCount, setRetryCount] = useState(0);
+  const generationIntervalRef = useRef<ReturnType<typeof setInterval>>();
 
   useEffect(() => {
     console.log("WorldGroupChat mounted with groupId:", groupId);
@@ -37,11 +37,11 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
       if (channel) {
         supabase.removeChannel(channel);
       }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
+      }
+      if (generationIntervalRef.current) {
+        clearInterval(generationIntervalRef.current);
       }
     };
   }, [groupId]);
@@ -49,9 +49,26 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
   useEffect(() => {
     if (!isPaused && groupMembers.length > 0) {
       console.log("Starting conversation generation cycle");
-      generateNewConversation();
+      startGenerationCycle();
+    } else {
+      stopGenerationCycle();
     }
   }, [isPaused, groupMembers]);
+
+  const startGenerationCycle = () => {
+    generateNewConversation();
+    generationIntervalRef.current = setInterval(() => {
+      if (!isGenerating && !isPaused) {
+        generateNewConversation();
+      }
+    }, 10000); // Try to generate every 10 seconds
+  };
+
+  const stopGenerationCycle = () => {
+    if (generationIntervalRef.current) {
+      clearInterval(generationIntervalRef.current);
+    }
+  };
 
   const fetchGroupMembers = async () => {
     try {
@@ -170,7 +187,6 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
           }
         }
         setRetryCount(0);
-        scheduleNextGeneration();
       }
     } catch (error) {
       console.error('Error generating conversation:', error);
@@ -200,7 +216,9 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
               setIsPaused(!isPaused);
               if (isPaused) {
                 setRetryCount(0);
-                generateNewConversation();
+                startGenerationCycle();
+              } else {
+                stopGenerationCycle();
               }
             }}
             className={`px-3 py-1 rounded text-sm ${
