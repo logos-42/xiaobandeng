@@ -34,6 +34,7 @@ serve(async (req) => {
 
   try {
     if (!DEEPSEEK_API_KEY) {
+      console.error('Configuration error: DeepSeek API key is missing')
       throw new Error('Configuration error: DeepSeek API key is missing')
     }
 
@@ -42,11 +43,13 @@ serve(async (req) => {
       requestData = await req.json()
       console.log('Request data:', JSON.stringify(requestData))
     } catch (e) {
+      console.error('Failed to parse request JSON:', e)
       throw new Error('Invalid request format: Unable to parse JSON')
     }
 
     const { agents, prompt } = requestData
     if (!agents || !Array.isArray(agents) || agents.length === 0) {
+      console.error('Invalid request - missing or empty agents array:', requestData)
       throw new Error('Invalid request: Missing or empty agents array')
     }
 
@@ -60,13 +63,14 @@ serve(async (req) => {
     })
 
     console.log('Making API call to DeepSeek...')
-    const completion = await openai.chat.completions.create({
-      model: "deepseek-chat",
-      messages: [
-        {
-          role: "system",
-          content: `你是一个独特而富有想象力的对话生成器。请基于以下角色的特点，创造一段令人惊叹的未来科幻或奇幻互动场景：${agents.map((agent: any) => 
-            `${agent.name}(${agent.description})`).join(", ")}。
+    try {
+      const completion = await openai.chat.completions.create({
+        model: "deepseek-chat",
+        messages: [
+          {
+            role: "system",
+            content: `你是一个独特而富有想象力的对话生成器。请基于以下角色的特点，创造一段令人惊叹的未来科幻或奇幻互动场景：${agents.map((agent: any) => 
+              `${agent.name}(${agent.description})`).join(", ")}。
 
 要求创造一个充满神奇和新奇的对话场景:
 1. 每个角色必须发言，格式为"角色名：xxx"
@@ -84,40 +88,45 @@ serve(async (req) => {
    - 语言风格要活泼、幽默
    - 对白要富有张力和想象力
 5. 整体氛围要充满想象力和新奇感，让读者感到耳目一新`
-        },
-        {
-          role: "user",
-          content: prompt || "请创造一个令人惊喜的对话场景"
-        }
-      ],
-      max_tokens: 800,
-      temperature: 0.9,
-    })
-
-    console.log('Received response from DeepSeek')
-
-    if (!completion.choices?.[0]?.message?.content) {
-      throw new Error('No content generated from DeepSeek API')
-    }
-
-    const content = completion.choices[0].message.content
-    console.log('Generated content:', content)
-
-    return new Response(
-      JSON.stringify({
-        choices: [{
-          message: {
-            content
+          },
+          {
+            role: "user",
+            content: prompt || "请创造一个令人惊喜的对话场景"
           }
-        }]
-      }), 
-      {
-        headers: {
-          ...corsHeaders,
-          'Cache-Control': 'no-store, no-cache, must-revalidate'
-        }
+        ],
+        max_tokens: 800,
+        temperature: 0.9,
+      })
+
+      console.log('Received response from DeepSeek')
+
+      if (!completion.choices?.[0]?.message?.content) {
+        console.error('No content in DeepSeek response:', completion)
+        throw new Error('No content generated from DeepSeek API')
       }
-    )
+
+      const content = completion.choices[0].message.content
+      console.log('Generated content:', content)
+
+      return new Response(
+        JSON.stringify({
+          choices: [{
+            message: {
+              content
+            }
+          }]
+        }), 
+        {
+          headers: {
+            ...corsHeaders,
+            'Cache-Control': 'no-store, no-cache, must-revalidate'
+          }
+        }
+      )
+    } catch (apiError) {
+      console.error('DeepSeek API error:', apiError)
+      throw new Error(`DeepSeek API error: ${apiError.message}`)
+    }
 
   } catch (error) {
     console.error('Error in generate-conversation function:', error)
@@ -138,3 +147,4 @@ serve(async (req) => {
     )
   }
 })
+
