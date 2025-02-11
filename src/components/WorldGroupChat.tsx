@@ -6,6 +6,7 @@ import { useGroupMembers } from "@/hooks/useGroupMembers";
 import { useConversations } from "@/hooks/useConversations";
 import { useConversationGeneration } from "@/hooks/useConversationGeneration";
 import { ConversationMessage } from "./conversation/ConversationMessage";
+import { Loader } from "lucide-react";
 
 interface WorldGroupChatProps {
   groupId: string;
@@ -20,6 +21,7 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
   const {
     isPaused,
     setIsPaused,
+    isGenerating,
     startGenerationCycle,
     stopGenerationCycle,
     cleanupTimers
@@ -52,26 +54,7 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">{groupName}</h3>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">主题：{theme}</span>
-          <button
-            onClick={() => {
-              setIsPaused(!isPaused);
-              if (isPaused) {
-                startGenerationCycle();
-              } else {
-                stopGenerationCycle();
-              }
-            }}
-            className={`px-3 py-1 rounded text-sm ${
-              isPaused 
-                ? "bg-green-500 hover:bg-green-600 text-white" 
-                : "bg-red-500 hover:bg-red-600 text-white"
-            }`}
-          >
-            {isPaused ? "继续对话" : "暂停对话"}
-          </button>
-        </div>
+        <span className="text-sm text-muted-foreground">主题：{theme}</span>
       </div>
       
       <div className="space-y-3 max-h-[500px] overflow-y-auto">
@@ -88,6 +71,33 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
           </div>
         )}
       </div>
+
+      <div className="flex justify-center items-center gap-4 pt-4 border-t">
+        {isGenerating && (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader className="w-4 h-4 animate-spin" />
+            <span>正在生成对话...</span>
+          </div>
+        )}
+        <button
+          onClick={() => {
+            setIsPaused(!isPaused);
+            if (isPaused) {
+              startGenerationCycle();
+            } else {
+              stopGenerationCycle();
+            }
+          }}
+          className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+            isPaused 
+              ? "bg-secondary hover:bg-secondary/80 text-secondary-foreground" 
+              : "bg-primary hover:bg-primary/90 text-primary-foreground"
+          }`}
+        >
+          {isPaused ? "开始生成对话" : "暂停生成"}
+        </button>
+      </div>
     </div>
   );
 };
+
