@@ -8,34 +8,42 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Content-Type': 'application/json'
+  'Content-Type': 'application/json',
+  'Cache-Control': 'no-store, no-cache, must-revalidate'
 }
 
 serve(async (req) => {
   const requestTime = new Date().toISOString()
   console.log(`[${requestTime}] Function started`)
 
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders
-    })
-  }
-
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({
-      error: 'Method not allowed'
-    }), {
-      status: 405,
-      headers: corsHeaders
-    })
-  }
-
   try {
+    // Handle CORS preflight requests
+    if (req.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: corsHeaders
+      })
+    }
+
+    if (req.method !== 'POST') {
+      console.error(`Invalid method: ${req.method}`)
+      return new Response(JSON.stringify({
+        error: 'Method not allowed'
+      }), {
+        status: 405,
+        headers: corsHeaders
+      })
+    }
+
     if (!DEEPSEEK_API_KEY) {
       console.error('Configuration error: DeepSeek API key is missing')
-      throw new Error('Configuration error: DeepSeek API key is missing')
+      return new Response(JSON.stringify({
+        error: 'Server configuration error',
+        details: 'DeepSeek API key is missing'
+      }), {
+        status: 500,
+        headers: corsHeaders
+      })
     }
 
     let requestData;
@@ -44,13 +52,25 @@ serve(async (req) => {
       console.log('Request data:', JSON.stringify(requestData))
     } catch (e) {
       console.error('Failed to parse request JSON:', e)
-      throw new Error('Invalid request format: Unable to parse JSON')
+      return new Response(JSON.stringify({
+        error: 'Invalid request format',
+        details: 'Unable to parse JSON body'
+      }), {
+        status: 400,
+        headers: corsHeaders
+      })
     }
 
     const { agents, prompt } = requestData
     if (!agents || !Array.isArray(agents) || agents.length === 0) {
       console.error('Invalid request - missing or empty agents array:', requestData)
-      throw new Error('Invalid request: Missing or empty agents array')
+      return new Response(JSON.stringify({
+        error: 'Invalid request',
+        details: 'Missing or empty agents array'
+      }), {
+        status: 400,
+        headers: corsHeaders
+      })
     }
 
     console.log('Generating conversation for agents:', agents.map((a: any) => a.name).join(', '))
@@ -122,7 +142,13 @@ serve(async (req) => {
       )
     } catch (apiError) {
       console.error('DeepSeek API error:', apiError)
-      throw new Error(`DeepSeek API error: ${apiError.message}`)
+      return new Response(JSON.stringify({
+        error: 'AI Generation Error',
+        details: apiError.message
+      }), {
+        status: 500,
+        headers: corsHeaders
+      })
     }
 
   } catch (error) {
@@ -140,3 +166,4 @@ serve(async (req) => {
     )
   }
 })
+
