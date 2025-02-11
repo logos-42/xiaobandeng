@@ -24,10 +24,13 @@ export const useConversationGeneration = (groupId: string, groupMembers: Agent[]
   const cleanupTimers = () => {
     if (retryTimeoutRef.current) {
       clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = undefined;
     }
     if (generationIntervalRef.current) {
       clearInterval(generationIntervalRef.current);
+      generationIntervalRef.current = undefined;
     }
+    setIsGenerating(false);
   };
 
   const scheduleNextGeneration = (delay: number = calculateRetryDelay(retryCount)) => {
@@ -45,7 +48,7 @@ export const useConversationGeneration = (groupId: string, groupMembers: Agent[]
     if (isGenerating || isPaused || groupMembers.length === 0) {
       return;
     }
-
+    
     const now = Date.now();
     if (now - lastRequestTime < minRequestInterval) {
       console.log("Skipping request due to rate limiting");
@@ -106,18 +109,24 @@ export const useConversationGeneration = (groupId: string, groupMembers: Agent[]
         setIsPaused(true);
       }
     } finally {
-      setIsGenerating(false);
+      if (isPaused) {
+        cleanupTimers();
+      } else {
+        setIsGenerating(false);
+      }
     }
   };
 
   const startGenerationCycle = () => {
-    generateNewConversation();
-    generationIntervalRef.current = setInterval(() => {
-      const now = Date.now();
-      if (!isGenerating && !isPaused && (now - lastRequestTime) >= minRequestInterval) {
-        generateNewConversation();
-      }
-    }, minRequestInterval);
+    if (!isPaused) {
+      generateNewConversation();
+      generationIntervalRef.current = setInterval(() => {
+        const now = Date.now();
+        if (!isGenerating && !isPaused && (now - lastRequestTime) >= minRequestInterval) {
+          generateNewConversation();
+        }
+      }, minRequestInterval);
+    }
   };
 
   const stopGenerationCycle = () => {

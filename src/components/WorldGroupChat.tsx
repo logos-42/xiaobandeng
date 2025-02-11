@@ -50,6 +50,15 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
     }
   }, [isPaused, groupMembers]);
 
+  const handlePauseToggle = () => {
+    setIsPaused(!isPaused);
+    if (!isPaused) {
+      stopGenerationCycle();
+    } else {
+      startGenerationCycle();
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -73,21 +82,14 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
       </div>
 
       <div className="flex justify-center items-center gap-4 pt-4 border-t">
-        {isGenerating && (
+        {isGenerating && !isPaused && (
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader className="w-4 h-4 animate-spin" />
             <span>正在生成对话...</span>
           </div>
         )}
         <button
-          onClick={() => {
-            setIsPaused(!isPaused);
-            if (isPaused) {
-              startGenerationCycle();
-            } else {
-              stopGenerationCycle();
-            }
-          }}
+          onClick={handlePauseToggle}
           className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
             isPaused 
               ? "bg-secondary hover:bg-secondary/80 text-secondary-foreground" 
@@ -100,4 +102,3 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
     </div>
   );
 };
-
