@@ -117,10 +117,7 @@ serve(async (req) => {
           }]
         }), 
         {
-          headers: {
-            ...corsHeaders,
-            'Cache-Control': 'no-store, no-cache, must-revalidate'
-          }
+          headers: corsHeaders
         }
       )
     } catch (apiError) {
@@ -131,7 +128,6 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in generate-conversation function:', error)
     
-    // Ensure we always return a proper JSON response with CORS headers
     return new Response(
       JSON.stringify({
         error: 'Failed to generate conversation',
@@ -139,12 +135,8 @@ serve(async (req) => {
       }),
       {
         status: 500,
-        headers: {
-          ...corsHeaders,
-          'Cache-Control': 'no-store, no-cache, must-revalidate'
-        }
+        headers: corsHeaders
       }
     )
   }
 })
-
