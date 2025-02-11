@@ -11,13 +11,35 @@ const corsHeaders = {
   'Content-Type': 'application/json'
 }
 
+// 添加请求队列管理
+let activeRequests = 0;
+const MAX_CONCURRENT_REQUESTS = 3;
+const requestQueue: (() => Promise<Response>)[] = [];
+
+async function processQueue() {
+  if (activeRequests >= MAX_CONCURRENT_REQUESTS || requestQueue.length === 0) {
+    return;
+  }
+
+  const nextRequest = requestQueue.shift();
+  if (nextRequest) {
+    activeRequests++;
+    try {
+      await nextRequest();
+    } catch (error) {
+      console.error('Error processing queued request:', error);
+    } finally {
+      activeRequests--;
+      processQueue();
+    }
+  }
+}
+
 serve(async (req) => {
   const requestTime = new Date().toISOString()
   console.log(`[${requestTime}] Function started`)
 
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    console.log('Handling CORS preflight request')
     return new Response(null, {
       status: 204,
       headers: corsHeaders
@@ -25,7 +47,6 @@ serve(async (req) => {
   }
 
   if (req.method !== 'POST') {
-    console.log(`Invalid method: ${req.method}`)
     return new Response(JSON.stringify({
       error: 'Method not allowed'
     }), {
@@ -34,46 +55,42 @@ serve(async (req) => {
     })
   }
 
-  try {
-    // Check DeepSeek API key
-    if (!DEEPSEEK_API_KEY) {
-      console.error('DEEPSEEK_API_KEY not found')
-      throw new Error('Configuration error: DeepSeek API key is missing')
-    }
-
-    // Parse and validate request data
-    let requestData
+  const handler = async (): Promise<Response> => {
     try {
-      requestData = await req.json()
-      console.log('Request data:', JSON.stringify(requestData))
-    } catch (e) {
-      console.error('Failed to parse request JSON:', e)
-      throw new Error('Invalid request format: Unable to parse JSON')
-    }
+      if (!DEEPSEEK_API_KEY) {
+        throw new Error('Configuration error: DeepSeek API key is missing')
+      }
 
-    const { agents, prompt } = requestData
-    if (!agents || !Array.isArray(agents) || agents.length === 0) {
-      console.error('Invalid agents data:', agents)
-      throw new Error('Invalid request: Missing or empty agents array')
-    }
+      let requestData;
+      try {
+        requestData = await req.json()
+        console.log('Request data:', JSON.stringify(requestData))
+      } catch (e) {
+        throw new Error('Invalid request format: Unable to parse JSON')
+      }
 
-    console.log('Generating conversation for agents:', agents.map((a: any) => a.name).join(', '))
-    console.log('Prompt:', prompt)
-    
-    const openai = new OpenAI({
-      apiKey: DEEPSEEK_API_KEY,
-      baseURL: "https://api.deepseek.com/v1",
-      timeout: 120000, // Increased timeout to 120 seconds
-    })
+      const { agents, prompt } = requestData
+      if (!agents || !Array.isArray(agents) || agents.length === 0) {
+        throw new Error('Invalid request: Missing or empty agents array')
+      }
 
-    console.log('Making API call to DeepSeek...')
-    const completion = await openai.chat.completions.create({
-      model: "deepseek-chat",
-      messages: [
-        {
-          role: "system",
-          content: `你是一个独特而富有想象力的对话生成器。请基于以下角色的特点，创造一段令人惊叹的未来科幻或奇幻互动场景：${agents.map((agent: any) => 
-            `${agent.name}(${agent.description})`).join(", ")}。
+      console.log('Generating conversation for agents:', agents.map((a: any) => a.name).join(', '))
+      console.log('Prompt:', prompt)
+      
+      const openai = new OpenAI({
+        apiKey: DEEPSEEK_API_KEY,
+        baseURL: "https://api.deepseek.com/v1",
+        timeout: 180000, // 增加到 180 秒
+      })
+
+      console.log('Making API call to DeepSeek...')
+      const completion = await openai.chat.completions.create({
+        model: "deepseek-chat",
+        messages: [
+          {
+            role: "system",
+            content: `你是一个独特而富有想象力的对话生成器。请基于以下角色的特点，创造一段令人惊叹的未来科幻或奇幻互动场景：${agents.map((agent: any) => 
+              `${agent.name}(${agent.description})`).join(", ")}。
 
 要求创造一个充满神奇和新奇的对话场景:
 1. 每个角色必须发言，格式为"角色名：xxx"
@@ -91,55 +108,84 @@ serve(async (req) => {
    - 语言风格要活泼、幽默
    - 对白要富有张力和想象力
 5. 整体氛围要充满想象力和新奇感，让读者感到耳目一新`
-        },
-        {
-          role: "user",
-          content: prompt || "请创造一个令人惊喜的对话场景"
-        }
-      ],
-      max_tokens: 500,
-      temperature: 0.9,
-    })
-
-    console.log('Received response from DeepSeek')
-    const content = completion.choices[0]?.message?.content
-    console.log('Generated content:', content)
-
-    if (!content) {
-      throw new Error('No content generated from DeepSeek API')
-    }
-
-    return new Response(
-      JSON.stringify({
-        choices: [{
-          message: {
-            content
+          },
+          {
+            role: "user",
+            content: prompt || "请创造一个令人惊喜的对话场景"
           }
-        }]
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Cache-Control': 'no-store, no-cache, must-revalidate'
-        }
-      }
-    )
+        ],
+        max_tokens: 800,
+        temperature: 0.9,
+      })
 
-  } catch (error) {
-    console.error('Error in generate-conversation function:', error)
-    
-    return new Response(
-      JSON.stringify({
-        error: 'Failed to generate conversation',
-        details: error.toString()
-      }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Cache-Control': 'no-store, no-cache, must-revalidate'
-        }
+      console.log('Received response from DeepSeek')
+      const content = completion.choices[0]?.message?.content
+      console.log('Generated content:', content)
+
+      if (!content) {
+        throw new Error('No content generated from DeepSeek API')
       }
-    )
+
+      return new Response(
+        JSON.stringify({
+          choices: [{
+            message: {
+              content
+            }
+          }]
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            'Cache-Control': 'no-store, no-cache, must-revalidate'
+          }
+        }
+      )
+
+    } catch (error) {
+      console.error('Error in generate-conversation function:', error)
+      return new Response(
+        JSON.stringify({
+          error: 'Failed to generate conversation',
+          details: error.toString()
+        }),
+        {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            'Cache-Control': 'no-store, no-cache, must-revalidate'
+          }
+        }
+      )
+    }
+  }
+
+  // 将请求添加到队列
+  const executeRequest = async () => {
+    const response = await handler();
+    return response;
+  };
+
+  if (activeRequests >= MAX_CONCURRENT_REQUESTS) {
+    requestQueue.push(executeRequest);
+    console.log(`Request queued. Queue length: ${requestQueue.length}`);
+    return new Response(
+      JSON.stringify({ 
+        status: 'queued',
+        message: 'Request has been queued due to high load' 
+      }),
+      { 
+        status: 202,
+        headers: corsHeaders 
+      }
+    );
+  }
+
+  activeRequests++;
+  try {
+    return await executeRequest();
+  } finally {
+    activeRequests--;
+    processQueue();
   }
 })

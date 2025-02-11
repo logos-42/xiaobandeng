@@ -23,9 +23,11 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
   const [isPaused, setIsPaused] = useState(false);
   const [groupMembers, setGroupMembers] = useState<Agent[]>([]);
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
-  const maxRetries = 3;
+  const maxRetries = 5; // 增加最大重试次数
   const [retryCount, setRetryCount] = useState(0);
   const generationIntervalRef = useRef<ReturnType<typeof setInterval>>();
+  const [lastRequestTime, setLastRequestTime] = useState(0);
+  const minRequestInterval = 15000; // 最小请求间隔设置为 15 秒
 
   useEffect(() => {
     console.log("WorldGroupChat mounted with groupId:", groupId);
@@ -37,12 +39,7 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
       if (channel) {
         supabase.removeChannel(channel);
       }
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-      }
-      if (generationIntervalRef.current) {
-        clearInterval(generationIntervalRef.current);
-      }
+      cleanupTimers();
     };
   }, [groupId]);
 
@@ -55,19 +52,27 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
     }
   }, [isPaused, groupMembers]);
 
-  const startGenerationCycle = () => {
-    generateNewConversation();
-    generationIntervalRef.current = setInterval(() => {
-      if (!isGenerating && !isPaused) {
-        generateNewConversation();
-      }
-    }, 10000); // Try to generate every 10 seconds
-  };
-
-  const stopGenerationCycle = () => {
+  const cleanupTimers = () => {
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+    }
     if (generationIntervalRef.current) {
       clearInterval(generationIntervalRef.current);
     }
+  };
+
+  const startGenerationCycle = () => {
+    generateNewConversation();
+    generationIntervalRef.current = setInterval(() => {
+      const now = Date.now();
+      if (!isGenerating && !isPaused && (now - lastRequestTime) >= minRequestInterval) {
+        generateNewConversation();
+      }
+    }, minRequestInterval);
+  };
+
+  const stopGenerationCycle = () => {
+    cleanupTimers();
   };
 
   const fetchGroupMembers = async () => {
@@ -96,7 +101,6 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
 
   const fetchConversations = async () => {
     try {
-      console.log("Fetching conversations for group:", groupId);
       const { data, error } = await supabase
         .from('world_conversations')
         .select('*')
@@ -105,7 +109,6 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
 
       if (error) throw error;
       
-      console.log("Fetched conversations:", data);
       setConversations(data || []);
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -135,9 +138,18 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
     return channel;
   };
 
-  const scheduleNextGeneration = (delay: number = 5000) => {
+  const calculateRetryDelay = (retryCount: number) => {
+    // 指数退避策略，基础延迟为 5 秒
+    const baseDelay = 5000;
+    const maxDelay = 30000; // 最大延迟 30 秒
+    const exponentialDelay = baseDelay * Math.pow(2, retryCount);
+    return Math.min(exponentialDelay, maxDelay);
+  };
+
+  const scheduleNextGeneration = (delay: number = calculateRetryDelay(retryCount)) => {
     if (!isPaused) {
       console.log(`Scheduling next generation in ${delay}ms`);
+      cleanupTimers();
       retryTimeoutRef.current = setTimeout(() => {
         setRetryCount(0);
         generateNewConversation();
@@ -149,8 +161,16 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
     if (isGenerating || isPaused || groupMembers.length === 0) {
       return;
     }
+
+    const now = Date.now();
+    if (now - lastRequestTime < minRequestInterval) {
+      console.log("Skipping request due to rate limiting");
+      return;
+    }
     
     setIsGenerating(true);
+    setLastRequestTime(now);
+
     try {
       console.log("Generating new conversation with members:", groupMembers);
       const { data: generatedData, error: functionError } = await supabase.functions.invoke('generate-conversation', {
@@ -187,12 +207,13 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
           }
         }
         setRetryCount(0);
+        scheduleNextGeneration(minRequestInterval);
       }
     } catch (error) {
       console.error('Error generating conversation:', error);
       
       if (retryCount < maxRetries) {
-        const nextRetryDelay = Math.min(5000 * Math.pow(2, retryCount), 30000);
+        const nextRetryDelay = calculateRetryDelay(retryCount);
         console.log(`Retry attempt ${retryCount + 1} scheduled in ${nextRetryDelay}ms`);
         setRetryCount(prev => prev + 1);
         scheduleNextGeneration(nextRetryDelay);
@@ -256,4 +277,3 @@ export const WorldGroupChat = ({ groupId, groupName, theme, agents }: WorldGroup
     </div>
   );
 };
-
