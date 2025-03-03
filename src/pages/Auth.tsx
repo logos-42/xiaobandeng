@@ -8,17 +8,28 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Lock, Mail, User, Loader } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, User, Loader, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { session } = useAuth();
+  const [loginError, setLoginError] = useState("");
+  const [signupError, setSignupError] = useState("");
+  const [signupSuccess, setSignupSuccess] = useState(false);
+  const { session, refreshSession } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Clear errors when switching tabs
+  const handleTabChange = (value: string) => {
+    setLoginError("");
+    setSignupError("");
+    setSignupSuccess(false);
+  };
 
   // If user is already logged in, redirect to home page
   if (session) {
@@ -32,28 +43,32 @@ export default function Auth() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setLoginError("");
     
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        setLoginError(error.message);
         toast({
           title: "登录失败",
           description: error.message,
           variant: "destructive",
         });
-      } else {
+      } else if (data?.session) {
+        await refreshSession();
         toast({
           title: "登录成功",
           description: "欢迎回来！",
         });
         navigate("/");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("登录错误:", error);
+      setLoginError(error.message || "发生未知错误，请稍后重试");
       toast({
         title: "登录错误",
         description: "发生未知错误，请稍后重试",
@@ -67,27 +82,40 @@ export default function Auth() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setSignupError("");
+    setSignupSuccess(false);
     
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            username: email.split('@')[0], // Use part of email as username
+          },
+        },
       });
 
       if (error) {
+        setSignupError(error.message);
         toast({
           title: "注册失败",
           description: error.message,
           variant: "destructive",
         });
       } else {
+        setSignupSuccess(true);
         toast({
           title: "注册成功",
           description: "请检查您的电子邮箱以确认账户",
         });
+        // Clear form
+        setEmail("");
+        setPassword("");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("注册错误:", error);
+      setSignupError(error.message || "发生未知错误，请稍后重试");
       toast({
         title: "注册错误",
         description: "发生未知错误，请稍后重试",
@@ -114,7 +142,7 @@ export default function Auth() {
             </CardDescription>
           </CardHeader>
           
-          <Tabs defaultValue="login" className="w-full">
+          <Tabs defaultValue="login" className="w-full" onValueChange={handleTabChange}>
             <TabsList className="grid w-full grid-cols-2 mb-4 p-1">
               <TabsTrigger value="login" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">登录</TabsTrigger>
               <TabsTrigger value="signup" className="rounded-md data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">注册</TabsTrigger>
@@ -123,6 +151,13 @@ export default function Auth() {
             <TabsContent value="login" className="mt-0">
               <form onSubmit={handleLogin}>
                 <CardContent className="space-y-4 pt-2">
+                  {loginError && (
+                    <Alert variant="destructive" className="bg-destructive/10 text-destructive border-destructive/20">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{loginError}</AlertDescription>
+                    </Alert>
+                  )}
+                  
                   <div className="space-y-2">
                     <Label htmlFor="email" className="text-sm font-medium">电子邮箱</Label>
                     <div className="relative">
@@ -198,6 +233,20 @@ export default function Auth() {
             <TabsContent value="signup" className="mt-0">
               <form onSubmit={handleSignUp}>
                 <CardContent className="space-y-4 pt-2">
+                  {signupError && (
+                    <Alert variant="destructive" className="bg-destructive/10 text-destructive border-destructive/20">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{signupError}</AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  {signupSuccess && (
+                    <Alert className="bg-green-50 text-green-700 border-green-200">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>注册成功！请检查您的邮箱以验证您的账户。</AlertDescription>
+                    </Alert>
+                  )}
+                  
                   <div className="space-y-2">
                     <Label htmlFor="email-signup" className="text-sm font-medium">电子邮箱</Label>
                     <div className="relative">

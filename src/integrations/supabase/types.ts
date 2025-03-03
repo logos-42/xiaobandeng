@@ -81,6 +81,24 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string | null
+          id: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
       world_conversations: {
         Row: {
           agent_id: string | null
