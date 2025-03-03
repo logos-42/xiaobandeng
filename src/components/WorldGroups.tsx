@@ -8,6 +8,7 @@ import { WorldGroupChat } from "./WorldGroupChat";
 import { CreateWorldGroup } from "./world-groups/CreateWorldGroup";
 import { GroupMembers } from "./world-groups/GroupMembers";
 import { WorldGroup } from "@/types/world-group";
+import { Globe, Settings, Trash2, MessageCircle, UserPlus } from "lucide-react";
 
 interface WorldGroupsProps {
   agents: Agent[];
@@ -57,8 +58,11 @@ export const WorldGroups = ({ agents }: WorldGroupsProps) => {
   };
 
   return (
-    <div className="agent-card">
-      <h2 className="text-xl font-semibold mb-4">世界群组</h2>
+    <div className="glass-card p-5">
+      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <Globe className="h-5 w-5 text-primary" />
+        世界群组
+      </h2>
       
       <div className="space-y-4">
         <CreateWorldGroup 
@@ -67,38 +71,60 @@ export const WorldGroups = ({ agents }: WorldGroupsProps) => {
 
         <div className="space-y-3">
           {worldGroups.map((group) => (
-            <div key={group.id} className="p-4 rounded-lg border">
+            <div key={group.id} className="agent-item overflow-visible">
               <div className="flex justify-between items-center mb-2">
-                <div>
-                  <h3 className="font-medium">{group.name}</h3>
-                  <p className="text-sm text-muted-foreground">主题：{group.theme}</p>
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-secondary/80 flex items-center justify-center text-white">
+                    <Globe className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">{group.name}</h3>
+                    <p className="text-sm text-muted-foreground">主题：{group.theme}</p>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setSelectedGroup(selectedGroup?.id === group.id ? null : group)}
+                    className="border-primary/20 hover:border-primary/30"
                   >
-                    {selectedGroup?.id === group.id ? "收起" : "管理"}
+                    {selectedGroup?.id === group.id ? (
+                      <>
+                        <Settings className="mr-1 h-4 w-4" /> 收起
+                      </>
+                    ) : (
+                      <>
+                        <Settings className="mr-1 h-4 w-4" /> 管理
+                      </>
+                    )}
                   </Button>
                   <Button
                     variant="destructive"
                     size="sm"
                     onClick={() => deleteWorldGroup(group.id)}
                   >
-                    删除
+                    <Trash2 className="mr-1 h-4 w-4" /> 删除
                   </Button>
                 </div>
               </div>
 
               {selectedGroup?.id === group.id && (
-                <div className="mt-4 space-y-3">
-                  <GroupMembers 
-                    groupId={group.id}
-                    allAgents={agents}
-                  />
+                <div className="mt-4 space-y-3 border-t pt-4 border-dashed">
+                  <div className="bg-white/50 p-3 rounded-lg border">
+                    <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
+                      <UserPlus className="h-4 w-4 text-primary" /> 群组成员
+                    </h4>
+                    <GroupMembers 
+                      groupId={group.id}
+                      allAgents={agents}
+                    />
+                  </div>
 
-                  <div className="mt-4">
+                  <div className="bg-white/50 p-3 rounded-lg border">
+                    <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
+                      <MessageCircle className="h-4 w-4 text-primary" /> 群组聊天
+                    </h4>
                     <WorldGroupChat
                       groupId={group.id}
                       groupName={group.name}
@@ -110,6 +136,15 @@ export const WorldGroups = ({ agents }: WorldGroupsProps) => {
               )}
             </div>
           ))}
+
+          {worldGroups.length === 0 && (
+            <div className="text-center py-8 border border-dashed rounded-xl border-muted-foreground/30">
+              <p className="text-muted-foreground mb-2">
+                还没有世界群组。创建一个开始探索吧！
+              </p>
+              <Globe className="h-8 w-8 mx-auto text-muted-foreground/50" />
+            </div>
+          )}
         </div>
       </div>
     </div>

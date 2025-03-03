@@ -1,8 +1,10 @@
+
 import { useState } from "react";
 import { Agent } from "@/types/agent";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Globe, Plus, Trash2, Sparkles } from "lucide-react";
 
 interface PublicAgentsProps {
   onAddToPrivate: (agent: Agent) => void;
@@ -41,6 +43,7 @@ export const PublicAgents = ({ onAddToPrivate, sharedAgents = [] }: PublicAgents
       isPublic: false 
     };
     onAddToPrivate(privateVersion);
+    toast.success(`已添加 ${agent.name} 到我的智能体`);
     console.log("添加公共智能体到私有列表:", privateVersion);
   };
 
@@ -62,8 +65,11 @@ export const PublicAgents = ({ onAddToPrivate, sharedAgents = [] }: PublicAgents
   };
 
   return (
-    <div className="agent-card">
-      <h2 className="text-xl font-semibold mb-4">公共智能体</h2>
+    <div className="glass-card p-5">
+      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <Globe className="h-5 w-5 text-primary" />
+        公共智能体
+      </h2>
       <div className="space-y-3">
         {sharedAgents.map((agent) => (
           <div
@@ -74,21 +80,27 @@ export const PublicAgents = ({ onAddToPrivate, sharedAgents = [] }: PublicAgents
             onTouchEnd={handleTouchEnd}
           >
             <div
-              className={`p-3 rounded-md border transition-all transform ${
-                slideState[agent.id] ? 'translate-x-[-80px]' : 'translate-x-0'
+              className={`agent-item transition-all transform ${
+                slideState[agent.id] ? 'translate-x-[-100px]' : 'translate-x-0'
               }`}
             >
               <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="font-medium">{agent.name}</h3>
-                  <p className="text-sm text-muted-foreground">{agent.description}</p>
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">{agent.name}</h3>
+                    <p className="text-sm text-muted-foreground">{agent.description}</p>
+                  </div>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handleAddToPrivate(agent)}
+                  className="border-secondary/30 text-secondary hover:bg-secondary/10 hover:text-secondary hover:border-secondary"
                 >
-                  添加到我的智能体
+                  <Plus className="mr-1 h-4 w-4" /> 添加到我的智能体
                 </Button>
               </div>
             </div>
@@ -100,14 +112,17 @@ export const PublicAgents = ({ onAddToPrivate, sharedAgents = [] }: PublicAgents
               }`}
               onClick={() => handleDelete(agent)}
             >
-              删除
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         ))}
         {sharedAgents.length === 0 && (
-          <p className="text-muted-foreground text-center py-4">
-            暂无公共智能体可用
-          </p>
+          <div className="text-center py-8 border border-dashed rounded-xl border-muted-foreground/30">
+            <p className="text-muted-foreground mb-2">
+              暂无公共智能体可用
+            </p>
+            <Globe className="h-8 w-8 mx-auto text-muted-foreground/50" />
+          </div>
         )}
       </div>
     </div>

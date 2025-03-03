@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { AgentsList } from "@/components/AgentsList";
 import { PublicAgents } from "@/components/PublicAgents";
@@ -7,12 +8,14 @@ import { WorldGroups } from "@/components/WorldGroups";
 import { Agent } from "@/types/agent";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { PlusCircle, Users, MessageCircle, Globe, Sparkles } from "lucide-react";
 
 const Index = () => {
   const [privateAgents, setPrivateAgents] = useState<Agent[]>([]);
   const [selectedAgents, setSelectedAgents] = useState<Agent[]>([]);
   const [conversations, setConversations] = useState<string[]>([]);
   const [sharedAgents, setSharedAgents] = useState<Agent[]>([]);
+  const [activeTab, setActiveTab] = useState<string>("agents");
 
   useEffect(() => {
     fetchAgents();
@@ -203,37 +206,115 @@ const Index = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold text-center mb-8 text-primary">小板凳</h1>
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <h1 className="text-gradient text-4xl font-bold text-center mb-8">小板凳</h1>
+      
+      {/* Navigation Tabs */}
+      <div className="flex justify-center mb-8">
+        <div className="glass-card p-1 grid grid-cols-4 gap-1 w-full max-w-2xl">
+          <button
+            onClick={() => setActiveTab("agents")}
+            className={`flex flex-col items-center justify-center py-3 px-4 rounded-lg transition-all ${
+              activeTab === "agents" 
+                ? "bg-primary text-white shadow-md" 
+                : "hover:bg-white/80"
+            }`}
+          >
+            <PlusCircle className="h-5 w-5 mb-1" />
+            <span className="text-sm font-medium">创建智能体</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("myAgents")}
+            className={`flex flex-col items-center justify-center py-3 px-4 rounded-lg transition-all ${
+              activeTab === "myAgents" 
+                ? "bg-primary text-white shadow-md" 
+                : "hover:bg-white/80"
+            }`}
+          >
+            <Users className="h-5 w-5 mb-1" />
+            <span className="text-sm font-medium">我的智能体</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("public")}
+            className={`flex flex-col items-center justify-center py-3 px-4 rounded-lg transition-all ${
+              activeTab === "public" 
+                ? "bg-primary text-white shadow-md" 
+                : "hover:bg-white/80"
+            }`}
+          >
+            <Globe className="h-5 w-5 mb-1" />
+            <span className="text-sm font-medium">公共智能体</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("worlds")}
+            className={`flex flex-col items-center justify-center py-3 px-4 rounded-lg transition-all ${
+              activeTab === "worlds" 
+                ? "bg-primary text-white shadow-md" 
+                : "hover:bg-white/80"
+            }`}
+          >
+            <Sparkles className="h-5 w-5 mb-1" />
+            <span className="text-sm font-medium">世界群组</span>
+          </button>
+        </div>
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Left Column */}
         <div className="space-y-8">
-          <CreateAgent 
-            onCreateAgent={handleCreateAgent}
-            existingAgents={privateAgents}
-          />
-          <AgentsList 
-            agents={privateAgents}
-            selectedAgents={selectedAgents}
-            onAgentSelect={handleAgentSelect}
-            onShareToPublic={handleShareToPublic}
-            onDeleteAgent={handleDeleteAgent}
-          />
+          {activeTab === "agents" && (
+            <CreateAgent 
+              onCreateAgent={handleCreateAgent}
+              existingAgents={privateAgents}
+            />
+          )}
+          
+          {(activeTab === "agents" || activeTab === "myAgents") && (
+            <AgentsList 
+              agents={privateAgents}
+              selectedAgents={selectedAgents}
+              onAgentSelect={handleAgentSelect}
+              onShareToPublic={handleShareToPublic}
+              onDeleteAgent={handleDeleteAgent}
+            />
+          )}
+          
+          {activeTab === "public" && (
+            <PublicAgents 
+              onAddToPrivate={handleCreateAgent}
+              sharedAgents={sharedAgents}
+            />
+          )}
+          
+          {activeTab === "worlds" && (
+            <WorldGroups 
+              agents={[...privateAgents, ...sharedAgents]}
+            />
+          )}
         </div>
         
+        {/* Right Column */}
         <div className="space-y-8">
-          <PublicAgents 
-            onAddToPrivate={handleCreateAgent}
-            sharedAgents={sharedAgents}
-          />
-          <WorldGroups 
-            agents={[...privateAgents, ...sharedAgents]}
-          />
-          <ConversationArea 
-            selectedAgents={selectedAgents}
-            conversations={conversations}
-            onStartConversation={handleStartConversation}
-          />
+          {activeTab !== "worlds" && (
+            <ConversationArea 
+              selectedAgents={selectedAgents}
+              conversations={conversations}
+              onStartConversation={handleStartConversation}
+            />
+          )}
+          
+          {activeTab === "agents" && (
+            <PublicAgents 
+              onAddToPrivate={handleCreateAgent}
+              sharedAgents={sharedAgents}
+            />
+          )}
+          
+          {activeTab === "myAgents" && (
+            <WorldGroups 
+              agents={[...privateAgents, ...sharedAgents]}
+            />
+          )}
         </div>
       </div>
     </div>

@@ -1,8 +1,10 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Agent } from "@/types/agent";
 import { toast } from "sonner";
+import { PlusCircle, Loader } from "lucide-react";
 
 interface CreateAgentProps {
   onCreateAgent: (agent: Agent) => void;
@@ -44,22 +46,33 @@ export const CreateAgent = ({ onCreateAgent, existingAgents }: CreateAgentProps)
   };
 
   return (
-    <div className="agent-card">
-      <h2 className="text-xl font-semibold mb-4">创建新智能体</h2>
+    <div className="glass-card p-5">
+      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <PlusCircle className="h-5 w-5 text-primary" />
+        创建新智能体
+      </h2>
       <div className="space-y-4">
         <Input
           placeholder="智能体名称（可选）"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full"
+          className="w-full border-primary/20 bg-white/50 focus:bg-white focus:border-primary"
           disabled={isSubmitting}
         />
         <Button 
           onClick={handleCreate} 
-          className="w-full"
+          className="w-full btn-primary hover-scale"
           disabled={isSubmitting}
         >
-          {isSubmitting ? "创建中..." : "创建智能体"}
+          {isSubmitting ? (
+            <span className="flex items-center justify-center">
+              <Loader className="mr-2 h-4 w-4 animate-spin" /> 创建中...
+            </span>
+          ) : (
+            <span className="flex items-center">
+              <PlusCircle className="mr-2 h-4 w-4" /> 创建智能体
+            </span>
+          )}
         </Button>
       </div>
     </div>
