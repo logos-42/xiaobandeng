@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Lock, Mail, User, Loader, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, User, Loader, AlertCircle, CheckCircle2, Info } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -20,6 +20,8 @@ export default function Auth() {
   const [loginError, setLoginError] = useState("");
   const [signupError, setSignupError] = useState("");
   const [signupSuccess, setSignupSuccess] = useState(false);
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
+  const [resendingConfirmation, setResendingConfirmation] = useState(false);
   const { session, refreshSession } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -29,6 +31,7 @@ export default function Auth() {
     setLoginError("");
     setSignupError("");
     setSignupSuccess(false);
+    setNeedsEmailConfirmation(false);
   };
 
   // If user is already logged in, redirect to home page
@@ -44,6 +47,7 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     setLoginError("");
+    setNeedsEmailConfirmation(false);
     
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -52,12 +56,17 @@ export default function Auth() {
       });
 
       if (error) {
-        setLoginError(error.message);
-        toast({
-          title: "登录失败",
-          description: error.message,
-          variant: "destructive",
-        });
+        // Check for the specific error about email confirmation
+        if (error.message.includes("Email not confirmed")) {
+          setNeedsEmailConfirmation(true);
+        } else {
+          setLoginError(error.message);
+          toast({
+            title: "登录失败",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
       } else if (data?.session) {
         await refreshSession();
         toast({
@@ -105,12 +114,13 @@ export default function Auth() {
         });
       } else {
         setSignupSuccess(true);
+        setNeedsEmailConfirmation(true);
         toast({
           title: "注册成功",
           description: "请检查您的电子邮箱以确认账户",
+          variant: "success", // Using success variant
         });
         // Clear form
-        setEmail("");
         setPassword("");
       }
     } catch (error: any) {
@@ -123,6 +133,41 @@ export default function Auth() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      setLoginError("请输入您的电子邮箱地址");
+      return;
+    }
+
+    setResendingConfirmation(true);
+    try {
+      const { data, error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+      });
+
+      if (error) {
+        setLoginError(error.message);
+        toast({
+          title: "重发确认邮件失败",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "确认邮件已发送",
+          description: "请检查您的电子邮箱并点击确认链接",
+          variant: "success",
+        });
+      }
+    } catch (error: any) {
+      console.error("重发确认邮件错误:", error);
+      setLoginError(error.message || "发生未知错误，请稍后重试");
+    } finally {
+      setResendingConfirmation(false);
     }
   };
 
@@ -151,10 +196,34 @@ export default function Auth() {
             <TabsContent value="login" className="mt-0">
               <form onSubmit={handleLogin}>
                 <CardContent className="space-y-4 pt-2">
-                  {loginError && (
+                  {loginError && !needsEmailConfirmation && (
                     <Alert variant="destructive" className="bg-destructive/10 text-destructive border-destructive/20">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>{loginError}</AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  {needsEmailConfirmation && (
+                    <Alert variant="warning" className="bg-amber-50 text-amber-700 border-amber-200">
+                      <Info className="h-4 w-4" />
+                      <div className="flex flex-col gap-2">
+                        <AlertDescription>您的电子邮箱尚未验证，请检查您的收件箱并点击确认链接</AlertDescription>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-fit text-amber-700 border-amber-300 hover:bg-amber-100 hover:text-amber-800"
+                          disabled={resendingConfirmation}
+                          onClick={handleResendConfirmation}
+                        >
+                          {resendingConfirmation ? (
+                            <span className="flex items-center">
+                              <Loader className="mr-2 h-3 w-3 animate-spin" /> 发送中...
+                            </span>
+                          ) : (
+                            "重新发送确认邮件"
+                          )}
+                        </Button>
+                      </div>
                     </Alert>
                   )}
                   
@@ -241,8 +310,8 @@ export default function Auth() {
                   )}
                   
                   {signupSuccess && (
-                    <Alert className="bg-green-50 text-green-700 border-green-200">
-                      <AlertCircle className="h-4 w-4" />
+                    <Alert variant="success" className="bg-green-50 text-green-700 border-green-200">
+                      <CheckCircle2 className="h-4 w-4" />
                       <AlertDescription>注册成功！请检查您的邮箱以验证您的账户。</AlertDescription>
                     </Alert>
                   )}
